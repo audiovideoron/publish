@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-from . import db, harvest as harv, transcribe, embed, query as q, visualize as viz
+from . import db, harvest as harv, transcribe, embed, query as q, visualize as viz, extract as ext
 
 app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
 console = Console()
@@ -383,6 +383,84 @@ def visualize(
             console.print(f"[red]Failed:[/red] {result['status']}")
             if result.get("text_response"):
                 console.print(f"[dim]Response:[/dim] {result['text_response']}")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
+@app.command()
+def extract(
+    topic: str = typer.Argument(None, help="Topic to search for artifacts"),
+    artifact_type: str = typer.Option("all", "--type", "-t", help="Artifact type: prompt, pattern, checklist, rule, tool, all"),
+    sources: int = typer.Option(10, "--sources", "-s", help="Number of source chunks to search"),
+    item_id: int = typer.Option(None, "--item", "-i", help="Extract from specific item ID"),
+    output: str = typer.Option(None, "--output", "-o", help="Save to file (JSON)"),
+):
+    """Extract implementation artifacts from your knowledge base.
+
+    Examples:
+        dz extract "agentic engineering"
+        dz extract "prompt design" --type prompt
+        dz extract --item 3 --type checklist
+    """
+    try:
+        if not topic and not item_id:
+            console.print("[red]Error:[/red] Provide a topic or --item ID")
+            return
+
+        if item_id:
+            console.print(f"[yellow]Extracting from item {item_id}...[/yellow]\n")
+            result = ext.extract_from_item(item_id, artifact_type=artifact_type)
+        else:
+            console.print(f"[yellow]Extracting artifacts for:[/yellow] {topic}\n")
+            result = ext.extract_artifacts(topic, artifact_type=artifact_type, num_sources=sources)
+
+        if result["status"] != "success":
+            console.print(f"[red]{result.get('message', 'Extraction failed')}[/red]")
+            return
+
+        # Display artifacts
+        artifacts = result.get("artifacts", [])
+        if not artifacts:
+            console.print("[dim]No artifacts found[/dim]")
+            return
+
+        for i, artifact in enumerate(artifacts, 1):
+            atype = artifact.get("type", "unknown").upper()
+            name = artifact.get("name", "Unnamed")
+            content = artifact.get("content", "")
+            context = artifact.get("context", "")
+
+            # Create panel for each artifact
+            panel_content = f"{content}\n\n[dim]Context: {context}[/dim]"
+            console.print(Panel(
+                panel_content,
+                title=f"[bold]{atype}[/bold] {name}",
+                border_style="cyan" if atype != "RAW" else "yellow",
+            ))
+            console.print()
+
+        # Show sources
+        if result.get("sources"):
+            console.print("[dim]Sources used:[/dim]")
+            for src in result["sources"][:5]:
+                title = src.get("title", "?")[:40]
+                console.print(f"  - {title}")
+
+        # Show notes
+        if result.get("notes"):
+            console.print(f"\n[dim]Notes: {result['notes']}[/dim]")
+
+        console.print(f"\n[dim]Artifacts: {len(artifacts)} | Tokens: {result.get('tokens_used', '?')}[/dim]")
+
+        # Save to file if requested
+        if output:
+            import json
+            output_path = Path(output)
+            with open(output_path, "w") as f:
+                json.dump(result, f, indent=2, default=str)
+            console.print(f"[green]Saved to:[/green] {output_path}")
+
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise
