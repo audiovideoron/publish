@@ -595,5 +595,65 @@ def artifacts_search(query: str):
         console.print(f"[red]Error:[/red] {e}")
 
 
+@artifacts_app.command("scaffold")
+def artifacts_scaffold(
+    name: str,
+    project_name: str = typer.Option(None, "--name", "-n", help="Project name (defaults to artifact name)"),
+    output_dir: str = typer.Option("demos", "--output", "-o", help="Output directory"),
+):
+    """Generate a working test project from an artifact.
+
+    Creates a runnable demo that implements the technique.
+
+    Example:
+        dz artifacts scaffold "Core Four" -n core-four-demo
+    """
+    try:
+        artifact = art.find_artifact(name)
+
+        if not artifact:
+            console.print(f"[red]Artifact not found:[/red] {name}")
+            return
+
+        # Default project name from artifact
+        if not project_name:
+            project_name = artifact.get("name", "demo").lower().replace(" ", "-")[:30]
+
+        console.print(f"[yellow]Scaffolding:[/yellow] {artifact.get('name')}")
+        console.print(f"[dim]Project:[/dim] {project_name}\n")
+
+        result = art.scaffold_project(
+            artifact,
+            project_name,
+            Path(output_dir),
+        )
+
+        if result["status"] != "success":
+            console.print(f"[red]Failed:[/red] {result.get('message', 'Unknown error')}")
+            if result.get("raw_response"):
+                console.print(f"[dim]{result['raw_response'][:500]}...[/dim]")
+            return
+
+        console.print(f"[green]Created:[/green] {result['project_dir']}\n")
+
+        console.print("[cyan]Files:[/cyan]")
+        for f in result["files_created"]:
+            console.print(f"  {f}")
+
+        if result.get("run_command"):
+            console.print(f"\n[yellow]To run:[/yellow]")
+            console.print(f"  cd {result['project_dir']}")
+            console.print(f"  {result['run_command']}")
+
+        if result.get("description"):
+            console.print(f"\n[dim]{result['description']}[/dim]")
+
+        console.print(f"\n[dim]Tokens: {result.get('tokens_used', '?')}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
 if __name__ == "__main__":
     app()
