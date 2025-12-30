@@ -655,5 +655,96 @@ def artifacts_scaffold(
         raise
 
 
+@app.command()
+def demo(
+    topic: str,
+    project_name: str = typer.Option(None, "--name", "-n", help="Project name"),
+    output_dir: str = typer.Option(None, "--output", "-o", help="Output directory"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+):
+    """Build a hello world demo from a lesson topic.
+
+    Searches your knowledge base, identifies the core lesson,
+    proposes a minimal demo, and builds it after confirmation.
+
+    Example:
+        dz demo "agentic layer"
+        dz demo "prompt engineering" -n prompt-demo -o ~/projects/
+    """
+    try:
+        console.print(f"[yellow]Analyzing:[/yellow] {topic}\n")
+
+        # Step 1: Analyze and propose
+        analysis = art.analyze_for_demo(topic)
+
+        if analysis["status"] != "success":
+            console.print(f"[red]{analysis.get('message', 'Analysis failed')}[/red]")
+            return
+
+        # Show what we found
+        console.print(f"[cyan]Found {len(analysis['sources'])} sources:[/cyan]")
+        for src in analysis["sources"][:3]:
+            console.print(f"  - {src['title']}")
+
+        console.print(f"\n[green]Core lesson:[/green]")
+        console.print(f"  {analysis['core_lesson']}")
+
+        console.print(f"\n[green]Proposed hello world:[/green]")
+        console.print(f"  {analysis['demo_concept']}")
+
+        if analysis.get("proves"):
+            console.print(f"\n[dim]This proves: {analysis['proves']}[/dim]")
+
+        # Step 2: Confirm
+        if not yes:
+            console.print()
+            proceed = typer.confirm("Build this demo?")
+            if not proceed:
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        # Step 3: Build
+        if not project_name:
+            project_name = topic.lower().replace(" ", "-")[:20] + "-demo"
+
+        if not output_dir:
+            output_dir = Path.home() / "projects"
+
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        console.print(f"\n[yellow]Building demo...[/yellow]")
+
+        result = art.build_demo(
+            topic=topic,
+            core_lesson=analysis["core_lesson"],
+            demo_concept=analysis["demo_concept"],
+            project_name=project_name,
+            output_dir=output_path,
+        )
+
+        if result["status"] != "success":
+            console.print(f"[red]Failed:[/red] {result.get('message', 'Unknown error')}")
+            return
+
+        console.print(f"\n[green]Created:[/green] {result['project_dir']}")
+
+        console.print(f"\n[cyan]Files:[/cyan]")
+        for f in result["files_created"]:
+            console.print(f"  {f}")
+
+        if result.get("run_command"):
+            console.print(f"\n[yellow]To run:[/yellow]")
+            console.print(f"  cd {result['project_dir']}")
+            console.print(f"  {result['run_command']}")
+
+        total_tokens = analysis.get("tokens_used", 0) + result.get("tokens_used", 0)
+        console.print(f"\n[dim]Tokens: {total_tokens}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
 if __name__ == "__main__":
     app()

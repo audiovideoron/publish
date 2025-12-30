@@ -8,6 +8,9 @@ from typing import Optional
 import anthropic
 from dotenv import load_dotenv
 
+from . import db
+from .embed import get_embedding
+
 load_dotenv()
 
 claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -263,5 +266,237 @@ The project should be self-contained and educational - I want to learn by seeing
         "files_created": files_created,
         "run_command": result.get("run_command", ""),
         "description": result.get("description", ""),
+        "tokens_used": response.usage.input_tokens + response.usage.output_tokens,
+    }
+
+
+def analyze_for_demo(topic: str, num_chunks: int = 10) -> dict:
+    """
+    Analyze knowledge base content and propose a hello world demo.
+
+    Args:
+        topic: Topic to search for
+        num_chunks: Number of chunks to analyze
+
+    Returns:
+        dict with sources, core_lesson, and proposed_demo
+    """
+    # Search knowledge base
+    query_embedding = get_embedding(topic)
+    chunks = db.search_chunks(query_embedding, limit=num_chunks)
+
+    if not chunks:
+        return {
+            "status": "no_content",
+            "message": "No relevant content found in knowledge base",
+        }
+
+    # Build context from chunks
+    context_parts = []
+    sources = []
+    for chunk in chunks:
+        source = chunk["item_title"]
+        ts = chunk.get("timestamp_start")
+        ts_str = f" @ {int(ts)//60}:{int(ts)%60:02d}" if ts else ""
+        context_parts.append(f"[{source}{ts_str}]\n{chunk['content']}")
+        if source not in [s["title"] for s in sources]:
+            sources.append({
+                "title": source,
+                "url": chunk.get("item_url"),
+            })
+
+    context = "\n\n---\n\n".join(context_parts)
+
+    # Ask Claude to analyze and propose a demo
+    system_prompt = """You are an expert at understanding educational content and designing minimal demonstrations.
+
+Your job is to:
+1. Understand the CORE lesson being taught
+2. Propose the simplest possible "hello world" demo that proves someone understood the concept
+
+The demo should be:
+- Minimal - the absolute simplest thing that demonstrates the concept
+- Runnable - actual working code, not pseudocode
+- Self-contained - no complex dependencies
+- Educational - clearly shows the concept in action
+
+Output format:
+CORE_LESSON: One sentence describing the essential insight
+DEMO_CONCEPT: 2-3 sentences describing what the hello world demo would do
+PROVES: What understanding does this demo prove?"""
+
+    user_message = f"""Topic: {topic}
+
+Content from knowledge base:
+
+{context}
+
+---
+
+Analyze this content and propose a minimal hello world demo."""
+
+    response = claude.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=1000,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+
+    response_text = response.content[0].text
+
+    # Parse response
+    core_lesson = ""
+    demo_concept = ""
+    proves = ""
+
+    for line in response_text.split("\n"):
+        if line.startswith("CORE_LESSON:"):
+            core_lesson = line.split(":", 1)[1].strip()
+        elif line.startswith("DEMO_CONCEPT:"):
+            demo_concept = line.split(":", 1)[1].strip()
+        elif line.startswith("PROVES:"):
+            proves = line.split(":", 1)[1].strip()
+
+    # Handle multi-line values
+    if not demo_concept:
+        # Try to extract from full text
+        if "DEMO_CONCEPT:" in response_text:
+            parts = response_text.split("DEMO_CONCEPT:")[1]
+            if "PROVES:" in parts:
+                demo_concept = parts.split("PROVES:")[0].strip()
+            else:
+                demo_concept = parts.strip()
+
+    return {
+        "status": "success",
+        "topic": topic,
+        "sources": sources,
+        "core_lesson": core_lesson,
+        "demo_concept": demo_concept,
+        "proves": proves,
+        "tokens_used": response.usage.input_tokens + response.usage.output_tokens,
+    }
+
+
+def build_demo(
+    topic: str,
+    core_lesson: str,
+    demo_concept: str,
+    project_name: str,
+    output_dir: Path,
+    num_chunks: int = 10,
+) -> dict:
+    """
+    Build a hello world demo based on analyzed lesson.
+
+    Args:
+        topic: Original topic
+        core_lesson: The core lesson identified
+        demo_concept: The proposed demo concept
+        project_name: Name for the project
+        output_dir: Where to create it
+
+    Returns:
+        dict with generated files
+    """
+    # Get context again for implementation details
+    query_embedding = get_embedding(topic)
+    chunks = db.search_chunks(query_embedding, limit=num_chunks)
+
+    context_parts = []
+    for chunk in chunks:
+        context_parts.append(chunk['content'])
+    context = "\n\n".join(context_parts[:5])  # Use top 5 for implementation
+
+    system_prompt = """You are an expert at creating minimal, working code demonstrations.
+
+Create a hello world demo that demonstrates a specific concept. The demo must be:
+1. MINIMAL - absolutely the simplest thing that works
+2. WORKING - actual runnable Python code
+3. CLEAR - obvious what it's demonstrating
+4. SELF-CONTAINED - no external dependencies beyond standard library if possible
+
+Output format: Use ===FILE=== markers:
+
+===META===
+run_command: python main.py
+description: One line description
+===END_META===
+
+===FILE=== main.py
+# code here
+===END_FILE===
+
+===FILE=== README.md
+# readme here
+===END_FILE==="""
+
+    user_message = f"""Create a hello world demo for this concept:
+
+Topic: {topic}
+Core Lesson: {core_lesson}
+Demo Concept: {demo_concept}
+
+Reference content from the lesson:
+{context[:3000]}
+
+Build the simplest possible demo that proves understanding of this concept."""
+
+    response = claude.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4000,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+
+    response_text = response.content[0].text
+
+    # Parse the response (same as scaffold_project)
+    import re
+
+    run_command = ""
+    description = ""
+    meta_match = re.search(r'===META===(.*?)===END_META===', response_text, re.DOTALL)
+    if meta_match:
+        meta_text = meta_match.group(1)
+        for line in meta_text.strip().split('\n'):
+            if line.startswith('run_command:'):
+                run_command = line.split(':', 1)[1].strip()
+            elif line.startswith('description:'):
+                description = line.split(':', 1)[1].strip()
+
+    files = {}
+    file_pattern = r'===FILE===\s*(\S+)\s*\n(.*?)===END_FILE==='
+    for match in re.finditer(file_pattern, response_text, re.DOTALL):
+        file_path = match.group(1).strip()
+        file_content = match.group(2)
+        files[file_path] = file_content
+
+    if not files:
+        return {
+            "status": "error",
+            "message": "No files generated",
+            "raw_response": response_text[:1000],
+        }
+
+    # Create project
+    project_dir = output_dir / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    files_created = []
+    for file_path, content in files.items():
+        full_path = project_dir / file_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(content)
+        files_created.append(str(full_path))
+
+    return {
+        "status": "success",
+        "project_dir": str(project_dir),
+        "files_created": files_created,
+        "run_command": run_command,
+        "description": description,
+        "core_lesson": core_lesson,
+        "demo_concept": demo_concept,
         "tokens_used": response.usage.input_tokens + response.usage.output_tokens,
     }
