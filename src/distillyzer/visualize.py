@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-import base64
 
 from google import genai
 from google.genai import types
@@ -15,8 +14,8 @@ load_dotenv()
 # Initialize Gemini client
 client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Model for image generation (Nano Banana)
-IMAGE_MODEL = "gemini-2.5-flash-image"
+# Model for image generation
+IMAGE_MODEL = "gemini-2.0-flash-exp-image-generation"
 
 
 def search_context(query: str, num_chunks: int = 3) -> str:
@@ -113,10 +112,9 @@ def generate_image(
                 filename = concept.lower().replace(" ", "_").replace(":", "")[:30] + ".png"
                 image_path = output_dir / filename
 
-                # Decode and save image
-                image_data = base64.b64decode(part.inline_data.data)
+                # Save image (data is already bytes)
                 with open(image_path, "wb") as f:
-                    f.write(image_data)
+                    f.write(part.inline_data.data)
 
                 result["image_path"] = str(image_path)
                 result["status"] = "success"
@@ -186,9 +184,8 @@ def generate_from_chunk(
                 filename = f"chunk_{chunk_id}.png"
                 image_path = output_dir / filename
 
-                image_data = base64.b64decode(part.inline_data.data)
                 with open(image_path, "wb") as f:
-                    f.write(image_data)
+                    f.write(part.inline_data.data)
 
                 result["image_path"] = str(image_path)
                 result["status"] = "success"
