@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-from . import db, harvest as harv, transcribe, embed, query as q
+from . import db, harvest as harv, transcribe, embed, query as q, visualize as viz
 
 app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
 console = Console()
@@ -326,6 +326,46 @@ def stats():
         console.print(table)
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
+
+
+@app.command()
+def visualize(
+    concept: str,
+    output_dir: str = typer.Option("images", "--output", "-o", help="Output directory"),
+    chunk_id: int = typer.Option(None, "--chunk", "-c", help="Generate from specific chunk ID"),
+    no_context: bool = typer.Option(False, "--no-context", help="Skip knowledge base search"),
+    num_sources: int = typer.Option(3, "--sources", "-s", help="Number of sources for context"),
+):
+    """Generate informational images using Gemini (Nano Banana)."""
+    try:
+        if chunk_id:
+            console.print(f"[yellow]Generating image for chunk {chunk_id}...[/yellow]\n")
+            result = viz.generate_from_chunk(chunk_id, output_dir=output_dir)
+        else:
+            console.print(f"[yellow]Generating image for:[/yellow] {concept}\n")
+            if not no_context:
+                console.print("[dim]Searching knowledge base for context...[/dim]")
+            result = viz.generate_image(
+                concept,
+                output_dir=output_dir,
+                use_context=not no_context,
+                num_chunks=num_sources,
+            )
+
+        if result["status"] == "success":
+            console.print(f"[green]Generated:[/green] {result['image_path']}")
+            if result.get("text_response"):
+                console.print(f"\n[dim]Model notes:[/dim] {result['text_response'][:200]}...")
+            # Open the image
+            import subprocess
+            subprocess.run(["open", result["image_path"]], check=False)
+        else:
+            console.print(f"[red]Failed:[/red] {result['status']}")
+            if result.get("text_response"):
+                console.print(f"[dim]Response:[/dim] {result['text_response']}")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
 
 
 if __name__ == "__main__":
