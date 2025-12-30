@@ -8,9 +8,11 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-from . import db, harvest as harv, transcribe, embed, query as q, visualize as viz, extract as ext
+from . import db, harvest as harv, transcribe, embed, query as q, visualize as viz, extract as ext, artifacts as art
 
 app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
+artifacts_app = typer.Typer(help="Manage and use extracted artifacts.")
+app.add_typer(artifacts_app, name="artifacts")
 console = Console()
 
 
@@ -464,6 +466,133 @@ def extract(
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise
+
+
+# --- Artifacts subcommands ---
+
+@artifacts_app.command("list")
+def artifacts_list():
+    """List all stored artifacts."""
+    try:
+        artifacts = art.list_all_artifacts()
+
+        if not artifacts:
+            console.print("[dim]No artifacts found. Extract some first:[/dim]")
+            console.print("  dz extract \"topic\" -o artifacts/topic.json")
+            return
+
+        # Group by source file
+        by_file = {}
+        for a in artifacts:
+            source = a.get("_source_file", "unknown")
+            if source not in by_file:
+                by_file[source] = []
+            by_file[source].append(a)
+
+        for source, file_artifacts in by_file.items():
+            console.print(f"\n[bold cyan]{source}.json[/bold cyan]")
+            table = Table(show_header=True, box=None)
+            table.add_column("#", style="dim", width=3)
+            table.add_column("Type", style="yellow", width=10)
+            table.add_column("Name", style="green")
+
+            for i, a in enumerate(file_artifacts, 1):
+                table.add_row(
+                    str(i),
+                    a.get("type", "?")[:10],
+                    a.get("name", "Unnamed")[:50],
+                )
+            console.print(table)
+
+        console.print(f"\n[dim]Total: {len(artifacts)} artifacts[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@artifacts_app.command("show")
+def artifacts_show(name: str):
+    """Show a specific artifact by name."""
+    try:
+        artifact = art.find_artifact(name)
+
+        if not artifact:
+            console.print(f"[red]Artifact not found:[/red] {name}")
+            console.print("[dim]Use 'dz artifacts list' to see available artifacts[/dim]")
+            return
+
+        atype = artifact.get("type", "unknown").upper()
+        aname = artifact.get("name", "Unnamed")
+        content = artifact.get("content", "")
+        context = artifact.get("context", "")
+        source = artifact.get("_source_file", "")
+
+        console.print(Panel(
+            f"{content}\n\n[dim]Context: {context}[/dim]",
+            title=f"[bold]{atype}[/bold] {aname}",
+            subtitle=f"[dim]from {source}.json[/dim]" if source else None,
+            border_style="cyan",
+        ))
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@artifacts_app.command("apply")
+def artifacts_apply(
+    name: str,
+    context: str = typer.Option(..., "--context", "-c", help="Your project/situation context"),
+):
+    """Apply an artifact to your specific context.
+
+    Example:
+        dz artifacts apply "Agentic Layer Pattern" -c "I have a FastAPI backend"
+    """
+    try:
+        artifact = art.find_artifact(name)
+
+        if not artifact:
+            console.print(f"[red]Artifact not found:[/red] {name}")
+            return
+
+        console.print(f"[yellow]Applying:[/yellow] {artifact.get('name')}")
+        console.print(f"[dim]To context:[/dim] {context}\n")
+
+        result = art.apply_artifact(artifact, context)
+
+        console.print(Panel(
+            Markdown(result["applied_guidance"]),
+            title=f"Applied: {result['artifact_name']}",
+            border_style="green",
+        ))
+
+        console.print(f"\n[dim]Tokens: {result['tokens_used']}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
+@artifacts_app.command("search")
+def artifacts_search(query: str):
+    """Search artifacts by keyword."""
+    try:
+        results = art.search_artifacts(query)
+
+        if not results:
+            console.print(f"[dim]No artifacts matching:[/dim] {query}")
+            return
+
+        console.print(f"[green]Found {len(results)} artifacts:[/green]\n")
+
+        for artifact in results:
+            atype = artifact.get("type", "?").upper()
+            aname = artifact.get("name", "Unnamed")
+            source = artifact.get("_source_file", "")
+            console.print(f"  [{atype}] {aname} [dim]({source})[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
 
 
 if __name__ == "__main__":
