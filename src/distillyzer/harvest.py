@@ -125,9 +125,17 @@ def harvest_video(url: str) -> dict:
     temp_dir = Path(tempfile.mkdtemp(prefix="distillyzer_"))
     audio_path = download_audio(url, temp_dir)
 
+    # Get or create source for channel
+    channel_url = info.get("channel_url", f"https://youtube.com/@{channel}")
+    source_id = db.get_or_create_source(
+        type="youtube_channel",
+        name=channel,
+        url=channel_url,
+    )
+
     # Create item in DB
     item_id = db.create_item(
-        source_id=None,
+        source_id=source_id,
         type="video",
         title=title,
         url=url,

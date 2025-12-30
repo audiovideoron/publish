@@ -65,6 +65,32 @@ def get_source_by_url(url: str) -> dict | None:
             return None
 
 
+def get_or_create_source(type: str, name: str, url: str) -> int:
+    """Get existing source by name or create new one. Returns source ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Try to find by name first
+            cur.execute(
+                "SELECT id FROM sources WHERE name = %s AND type = %s",
+                (name, type),
+            )
+            row = cur.fetchone()
+            if row:
+                return row[0]
+            # Create new source
+            cur.execute(
+                """
+                INSERT INTO sources (type, name, url)
+                VALUES (%s, %s, %s)
+                RETURNING id
+                """,
+                (type, name, url),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result[0]
+
+
 # --- Items ---
 
 def create_item(
@@ -241,6 +267,59 @@ def get_items_with_chunks(item_id: int | None = None) -> list[dict]:
                 ]
                 items.append(item)
             return items
+
+
+def get_items_grouped_by_source() -> dict[str, list[dict]]:
+    """Get items grouped by source/channel for index generation."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Get all items with source info
+            cur.execute(
+                """
+                SELECT i.id, i.type, i.title, i.url, i.metadata,
+                       COALESCE(s.name, i.metadata->>'channel', 'Unknown') as source_name
+                FROM items i
+                LEFT JOIN sources s ON i.source_id = s.id
+                ORDER BY source_name, i.id
+                """
+            )
+
+            grouped = {}
+            for row in cur.fetchall():
+                item = {
+                    "id": row[0],
+                    "type": row[1],
+                    "title": row[2],
+                    "url": row[3],
+                    "metadata": row[4] or {},
+                }
+                source_name = row[5]
+
+                # Get chunks for this item
+                cur.execute(
+                    """
+                    SELECT chunk_index, content, timestamp_start, timestamp_end
+                    FROM chunks
+                    WHERE item_id = %s
+                    ORDER BY chunk_index
+                    """,
+                    (item["id"],),
+                )
+                item["chunks"] = [
+                    {
+                        "chunk_index": c[0],
+                        "content": c[1],
+                        "timestamp_start": c[2],
+                        "timestamp_end": c[3],
+                    }
+                    for c in cur.fetchall()
+                ]
+
+                if source_name not in grouped:
+                    grouped[source_name] = []
+                grouped[source_name].append(item)
+
+            return grouped
 
 
 # --- Stats ---

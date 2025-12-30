@@ -103,6 +103,11 @@ def harvest(
 
                 # Cleanup audio file
                 Path(result["audio_path"]).unlink(missing_ok=True)
+
+                # Auto-regenerate index
+                console.print("[yellow]Updating index...[/yellow]")
+                _regenerate_index()
+                console.print("[green]Index updated[/green]")
         else:
             console.print("[red]Unknown URL type.[/red] Supported: YouTube, GitHub")
     except Exception as e:
@@ -220,8 +225,8 @@ def _make_timestamp_link(url: str, timestamp: float | None) -> str:
     return url
 
 
-def _generate_index_html(items: list[dict], output_path: Path) -> None:
-    """Generate HTML index file."""
+def _generate_index_html_grouped(grouped_items: dict[str, list[dict]], output_path: Path) -> None:
+    """Generate HTML index file grouped by source."""
     html_parts = [
         "<!DOCTYPE html>",
         "<html><head>",
@@ -230,7 +235,7 @@ def _generate_index_html(items: list[dict], output_path: Path) -> None:
         "<style>",
         "body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; line-height: 1.6; }",
         "h1 { color: #333; }",
-        "h2 { color: #555; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }",
+        "h2 { color: #444; margin-top: 2em; border-bottom: 2px solid #0066cc; padding-bottom: 0.3em; }",
         "ul { list-style: none; padding: 0; }",
         "li { margin: 0.5em 0; padding: 0.5em; background: #f9f9f9; border-radius: 4px; }",
         "a { color: #0066cc; text-decoration: none; }",
@@ -238,8 +243,10 @@ def _generate_index_html(items: list[dict], output_path: Path) -> None:
         "a .timestamp { font-family: monospace; color: #0066cc; margin-right: 1em; }",
         "a:hover .timestamp { text-decoration: underline; }",
         ".preview { color: #333; }",
-        "details { margin: 1em 0; }",
-        "summary { cursor: pointer; font-size: 1.3em; font-weight: 600; color: #555; padding: 0.5em; background: #f0f0f0; border-radius: 4px; }",
+        ".source-section { margin: 2em 0; padding: 1em; border: 1px solid #ddd; border-radius: 8px; }",
+        ".source-header { font-size: 1.5em; font-weight: bold; color: #333; margin-bottom: 1em; }",
+        "details { margin: 0.5em 0; }",
+        "summary { cursor: pointer; font-size: 1.1em; font-weight: 600; color: #555; padding: 0.5em; background: #f0f0f0; border-radius: 4px; }",
         "summary:hover { background: #e8e8e8; }",
         "summary .chunk-count { font-size: 0.7em; font-weight: normal; color: #888; margin-left: 0.5em; }",
         "</style>",
@@ -247,61 +254,74 @@ def _generate_index_html(items: list[dict], output_path: Path) -> None:
         "<h1>Distillyzer Knowledge Index</h1>",
     ]
 
-    for item in items:
-        chunk_count = len(item["chunks"])
-        html_parts.append("<details>")
-        html_parts.append(f"<summary>{item['title']}<span class='chunk-count'>({chunk_count} chunks)</span></summary>")
-        is_youtube = "youtube.com" in (item["url"] or "") or "youtu.be" in (item["url"] or "")
-        html_parts.append("<ul>")
+    for source_name, items in grouped_items.items():
+        total_chunks = sum(len(item["chunks"]) for item in items)
+        html_parts.append("<div class='source-section'>")
+        html_parts.append(f"<div class='source-header'>{source_name} ({len(items)} items, {total_chunks} chunks)</div>")
 
-        for chunk in item["chunks"]:
-            ts = chunk["timestamp_start"]
-            ts_str = _format_timestamp(ts)
-            preview = chunk["content"][:80].replace("<", "&lt;").replace(">", "&gt;")
-            if len(chunk["content"]) > 80:
-                preview += "..."
+        for item in items:
+            chunk_count = len(item["chunks"])
+            html_parts.append("<details>")
+            html_parts.append(f"<summary>{item['title']}<span class='chunk-count'>({chunk_count} chunks)</span></summary>")
+            is_youtube = "youtube.com" in (item["url"] or "") or "youtu.be" in (item["url"] or "")
+            html_parts.append("<ul>")
 
-            if is_youtube and item["url"]:
-                link = _make_timestamp_link(item["url"], ts)
-                html_parts.append(
-                    f'<li><a href="{link}"><span class="timestamp">{ts_str}</span></a>'
-                    f'<span class="preview">{preview}</span></li>'
-                )
-            else:
-                # Non-YouTube: link to page, show timestamp for manual navigation
-                link = item["url"] or "#"
-                html_parts.append(
-                    f'<li><a href="{link}"><span class="timestamp">{ts_str}</span></a>'
-                    f'<span class="preview">{preview}</span></li>'
-                )
+            for chunk in item["chunks"]:
+                ts = chunk["timestamp_start"]
+                ts_str = _format_timestamp(ts)
+                preview = chunk["content"][:80].replace("<", "&lt;").replace(">", "&gt;")
+                if len(chunk["content"]) > 80:
+                    preview += "..."
 
-        html_parts.append("</ul>")
-        html_parts.append("</details>")
+                if is_youtube and item["url"]:
+                    link = _make_timestamp_link(item["url"], ts)
+                    html_parts.append(
+                        f'<li><a href="{link}"><span class="timestamp">{ts_str}</span></a>'
+                        f'<span class="preview">{preview}</span></li>'
+                    )
+                else:
+                    link = item["url"] or "#"
+                    html_parts.append(
+                        f'<li><a href="{link}"><span class="timestamp">{ts_str}</span></a>'
+                        f'<span class="preview">{preview}</span></li>'
+                    )
+
+            html_parts.append("</ul>")
+            html_parts.append("</details>")
+
+        html_parts.append("</div>")
 
     html_parts.extend(["</body></html>"])
     output_path.write_text("\n".join(html_parts))
 
 
+def _regenerate_index(output_path: Path = Path("index.html")) -> None:
+    """Regenerate the HTML index file."""
+    grouped = db.get_items_grouped_by_source()
+    _generate_index_html_grouped(grouped, output_path)
+
+
 @app.command()
 def index(
-    item_id: int = typer.Option(None, "--item", "-i", help="Generate index for specific item ID"),
     output: str = typer.Option("index.html", "--output", "-o", help="Output file path"),
 ):
-    """Generate HTML index with timestamp links."""
+    """Generate HTML index with timestamp links, grouped by source."""
     console.print("[yellow]Generating index...[/yellow]\n")
 
     try:
-        items = db.get_items_with_chunks(item_id)
-        if not items:
-            console.print("[dim]No items found[/dim]")
-            return
-
         output_path = Path(output)
-        _generate_index_html(items, output_path)
+        _regenerate_index(output_path)
 
-        total_chunks = sum(len(item["chunks"]) for item in items)
+        grouped = db.get_items_grouped_by_source()
+        total_items = sum(len(items) for items in grouped.values())
+        total_chunks = sum(
+            sum(len(item["chunks"]) for item in items)
+            for items in grouped.values()
+        )
+
         console.print(f"[green]Generated:[/green] {output_path}")
-        console.print(f"[dim]Items:[/dim] {len(items)}")
+        console.print(f"[dim]Sources:[/dim] {len(grouped)}")
+        console.print(f"[dim]Items:[/dim] {total_items}")
         console.print(f"[dim]Chunks:[/dim] {total_chunks}")
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
