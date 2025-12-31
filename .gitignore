@@ -24,3 +24,5 @@ wheels/
 downloads/
 logs/
 images/
+*.pdf
+artifacts/
