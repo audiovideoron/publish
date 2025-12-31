@@ -41,3 +41,15 @@ CREATE TABLE chunks (
 --   DROP INDEX chunks_embedding_idx;
 --   CREATE INDEX chunks_embedding_idx ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10);
 CREATE INDEX chunks_embedding_idx ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10);
+
+-- Skills (presentation skills generated from research)
+CREATE TABLE skills (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    type VARCHAR(50) NOT NULL,  -- 'diagnostic', 'tutorial', 'comparison', etc.
+    description TEXT,
+    content TEXT NOT NULL,  -- the skill instructions/template
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);

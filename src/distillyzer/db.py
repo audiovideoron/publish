@@ -322,6 +322,98 @@ def get_items_grouped_by_source() -> dict[str, list[dict]]:
             return grouped
 
 
+# --- Skills ---
+
+def create_skill(
+    name: str,
+    type: str,
+    content: str,
+    description: str | None = None,
+    metadata: dict | None = None,
+) -> int:
+    """Create a skill and return its ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO skills (name, type, content, description, metadata)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (name, type, content, description, Jsonb(metadata) if metadata else None),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result[0]
+
+
+def get_skill(name: str) -> dict | None:
+    """Get a skill by name."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, name, type, description, content, metadata, created_at, updated_at FROM skills WHERE name = %s",
+                (name,),
+            )
+            row = cur.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "name": row[1],
+                    "type": row[2],
+                    "description": row[3],
+                    "content": row[4],
+                    "metadata": row[5],
+                    "created_at": row[6],
+                    "updated_at": row[7],
+                }
+            return None
+
+
+def list_skills() -> list[dict]:
+    """List all skills."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, name, type, description, created_at FROM skills ORDER BY name"
+            )
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "type": row[2],
+                    "description": row[3],
+                    "created_at": row[4],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def update_skill(name: str, content: str, description: str | None = None) -> bool:
+    """Update a skill's content."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE skills
+                SET content = %s, description = COALESCE(%s, description), updated_at = NOW()
+                WHERE name = %s
+                """,
+                (content, description, name),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+
+def delete_skill(name: str) -> bool:
+    """Delete a skill by name."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM skills WHERE name = %s", (name,))
+            conn.commit()
+            return cur.rowcount > 0
+
+
 # --- Stats ---
 
 def get_stats() -> dict:

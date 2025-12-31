@@ -13,6 +13,8 @@ from . import db, harvest as harv, transcribe, embed, query as q, visualize as v
 app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
 artifacts_app = typer.Typer(help="Manage and use extracted artifacts.")
 app.add_typer(artifacts_app, name="artifacts")
+skills_app = typer.Typer(help="Manage presentation skills.")
+app.add_typer(skills_app, name="skills")
 console = Console()
 
 
@@ -744,6 +746,152 @@ def demo(
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise
+
+
+# --- Skills subcommands ---
+
+@skills_app.command("list")
+def skills_list():
+    """List all skills."""
+    try:
+        skills = db.list_skills()
+
+        if not skills:
+            console.print("[dim]No skills found.[/dim]")
+            console.print("[dim]Create one with:[/dim] dz skills create")
+            return
+
+        table = Table(show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Type", style="yellow")
+        table.add_column("Description", style="dim")
+        table.add_column("Created", style="dim")
+
+        for skill in skills:
+            desc = skill.get("description") or ""
+            if len(desc) > 40:
+                desc = desc[:40] + "..."
+            created = skill.get("created_at")
+            created_str = created.strftime("%Y-%m-%d") if created else ""
+            table.add_row(
+                skill["name"],
+                skill["type"],
+                desc,
+                created_str,
+            )
+
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(skills)} skills[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@skills_app.command("show")
+def skills_show(name: str):
+    """Show a skill's content."""
+    try:
+        skill = db.get_skill(name)
+
+        if not skill:
+            console.print(f"[red]Skill not found:[/red] {name}")
+            return
+
+        console.print(Panel(
+            skill["content"],
+            title=f"[bold]{skill['name']}[/bold] ({skill['type']})",
+            subtitle=skill.get("description"),
+            border_style="cyan",
+        ))
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@skills_app.command("create")
+def skills_create(
+    name: str = typer.Option(..., "--name", "-n", help="Skill name"),
+    skill_type: str = typer.Option(..., "--type", "-t", help="Skill type (diagnostic, tutorial, etc.)"),
+    description: str = typer.Option(None, "--description", "-d", help="Skill description"),
+    content_file: str = typer.Option(None, "--file", "-f", help="Read content from file"),
+):
+    """Create a new skill.
+
+    Example:
+        dz skills create -n "diagnostic-troubleshooting" -t "diagnostic" -d "Outputs diagnostic frameworks as PDF" -f skill.md
+    """
+    try:
+        # Get content
+        if content_file:
+            content = Path(content_file).read_text()
+        else:
+            console.print("[yellow]Enter skill content (Ctrl+D when done):[/yellow]")
+            import sys
+            content = sys.stdin.read()
+
+        if not content.strip():
+            console.print("[red]Error:[/red] No content provided")
+            return
+
+        skill_id = db.create_skill(
+            name=name,
+            type=skill_type,
+            content=content,
+            description=description,
+        )
+
+        console.print(f"[green]Created skill:[/green] {name} (id: {skill_id})")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@skills_app.command("update")
+def skills_update(
+    name: str,
+    content_file: str = typer.Option(None, "--file", "-f", help="Read new content from file"),
+    description: str = typer.Option(None, "--description", "-d", help="Update description"),
+):
+    """Update a skill's content."""
+    try:
+        skill = db.get_skill(name)
+        if not skill:
+            console.print(f"[red]Skill not found:[/red] {name}")
+            return
+
+        if content_file:
+            content = Path(content_file).read_text()
+        else:
+            console.print("[yellow]Enter new content (Ctrl+D when done):[/yellow]")
+            import sys
+            content = sys.stdin.read()
+
+        if db.update_skill(name, content, description):
+            console.print(f"[green]Updated:[/green] {name}")
+        else:
+            console.print(f"[red]Failed to update:[/red] {name}")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@skills_app.command("delete")
+def skills_delete(name: str):
+    """Delete a skill."""
+    try:
+        skill = db.get_skill(name)
+        if not skill:
+            console.print(f"[red]Skill not found:[/red] {name}")
+            return
+
+        if typer.confirm(f"Delete skill '{name}'?"):
+            if db.delete_skill(name):
+                console.print(f"[green]Deleted:[/green] {name}")
+            else:
+                console.print(f"[red]Failed to delete:[/red] {name}")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
 
 
 if __name__ == "__main__":

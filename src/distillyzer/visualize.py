@@ -37,18 +37,17 @@ def search_context(query: str, num_chunks: int = 3) -> str:
 
 def create_diagram_prompt(concept: str, context: str) -> str:
     """Create a prompt for generating an informational diagram."""
-    key_points = context[:400] if context else ""
+    if context:
+        return f"""Create a clear, professional diagram for: {concept}
 
-    return f"""Create an infographic with title "{concept}".
+Use this context to inform the diagram:
+{context[:400]}
 
-Show exactly 4 boxes in a row labeled: CONTEXT, MODEL, PROMPT, TOOLS
+Style: clean, professional, easy to read. Use appropriate colors and layout for the subject matter."""
+    else:
+        return f"""Create a clear, professional diagram for: {concept}
 
-Connect them with arrows showing the flow.
-
-Add brief descriptions under each box based on this content:
-{key_points}
-
-Style: blue boxes, white background, clean professional look."""
+Style: clean, professional, easy to read. Use appropriate colors and layout for the subject matter."""
 
 
 def generate_image(
