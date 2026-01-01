@@ -91,6 +91,69 @@ def get_or_create_source(type: str, name: str, url: str) -> int:
             return result[0]
 
 
+def list_sources() -> list[dict]:
+    """Return all sources."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, type, name, url, metadata FROM sources ORDER BY id"
+            )
+            return [
+                {
+                    "id": row[0],
+                    "type": row[1],
+                    "name": row[2],
+                    "url": row[3],
+                    "metadata": row[4],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def update_source(
+    id: int,
+    type: str | None = None,
+    name: str | None = None,
+    url: str | None = None,
+    metadata: dict | None = None,
+) -> dict | None:
+    """Update a source and return the updated source."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE sources
+                SET type = COALESCE(%s, type),
+                    name = COALESCE(%s, name),
+                    url = COALESCE(%s, url),
+                    metadata = COALESCE(%s, metadata)
+                WHERE id = %s
+                RETURNING id, type, name, url, metadata
+                """,
+                (type, name, url, Jsonb(metadata) if metadata else None, id),
+            )
+            row = cur.fetchone()
+            conn.commit()
+            if row:
+                return {
+                    "id": row[0],
+                    "type": row[1],
+                    "name": row[2],
+                    "url": row[3],
+                    "metadata": row[4],
+                }
+            return None
+
+
+def delete_source(id: int) -> bool:
+    """Delete a source by ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM sources WHERE id = %s", (id,))
+            conn.commit()
+            return cur.rowcount > 0
+
+
 # --- Items ---
 
 def create_item(
@@ -135,6 +198,79 @@ def get_item_by_url(url: str) -> dict | None:
                     "metadata": row[5],
                 }
             return None
+
+
+def list_items(source_id: int | None = None) -> list[dict]:
+    """Return all items, optionally filtered by source_id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if source_id is not None:
+                cur.execute(
+                    "SELECT id, source_id, type, title, url, metadata FROM items WHERE source_id = %s ORDER BY id",
+                    (source_id,),
+                )
+            else:
+                cur.execute(
+                    "SELECT id, source_id, type, title, url, metadata FROM items ORDER BY id"
+                )
+            return [
+                {
+                    "id": row[0],
+                    "source_id": row[1],
+                    "type": row[2],
+                    "title": row[3],
+                    "url": row[4],
+                    "metadata": row[5],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def update_item(
+    id: int,
+    source_id: int | None = None,
+    type: str | None = None,
+    title: str | None = None,
+    url: str | None = None,
+    metadata: dict | None = None,
+) -> dict | None:
+    """Update an item and return the updated item."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE items
+                SET source_id = COALESCE(%s, source_id),
+                    type = COALESCE(%s, type),
+                    title = COALESCE(%s, title),
+                    url = COALESCE(%s, url),
+                    metadata = COALESCE(%s, metadata)
+                WHERE id = %s
+                RETURNING id, source_id, type, title, url, metadata
+                """,
+                (source_id, type, title, url, Jsonb(metadata) if metadata else None, id),
+            )
+            row = cur.fetchone()
+            conn.commit()
+            if row:
+                return {
+                    "id": row[0],
+                    "source_id": row[1],
+                    "type": row[2],
+                    "title": row[3],
+                    "url": row[4],
+                    "metadata": row[5],
+                }
+            return None
+
+
+def delete_item(id: int) -> bool:
+    """Delete an item by ID. Chunks are deleted via CASCADE."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM items WHERE id = %s", (id,))
+            conn.commit()
+            return cur.rowcount > 0
 
 
 # --- Chunks ---
@@ -187,6 +323,15 @@ def create_chunks_batch(chunks: list[dict]) -> list[int]:
                 ids.append(cur.fetchone()[0])
             conn.commit()
             return ids
+
+
+def delete_chunk(id: int) -> bool:
+    """Delete a chunk by ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM chunks WHERE id = %s", (id,))
+            conn.commit()
+            return cur.rowcount > 0
 
 
 def search_chunks(query_embedding: list[float], limit: int = 10) -> list[dict]:
