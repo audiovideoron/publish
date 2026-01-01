@@ -28,3 +28,6 @@ images/
 artifacts/
 .claude/
 demos/
+distillyzer-ev2/
+distillyzer-pf0/
+distillyzer-llh/
