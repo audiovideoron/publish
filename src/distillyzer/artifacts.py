@@ -110,12 +110,28 @@ My situation:
 
 How should I implement this? Give me specific, actionable steps."""
 
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        return {
+            "status": "error",
+            "message": f"Failed to connect to Anthropic API: {e}",
+        }
+    except anthropic.RateLimitError as e:
+        return {
+            "status": "error",
+            "message": f"Rate limit exceeded: {e}",
+        }
+    except anthropic.APIStatusError as e:
+        return {
+            "status": "error",
+            "message": f"Anthropic API error: {e.status_code} - {e.message}",
+        }
 
     return {
         "artifact_name": artifact_name,
@@ -203,12 +219,28 @@ Context: {artifact_context}
 Generate a minimal working project that I can run to see this technique in action.
 The project should be self-contained and educational - I want to learn by seeing it work."""
 
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        return {
+            "status": "error",
+            "message": f"Failed to connect to Anthropic API: {e}",
+        }
+    except anthropic.RateLimitError as e:
+        return {
+            "status": "error",
+            "message": f"Rate limit exceeded: {e}",
+        }
+    except anthropic.APIStatusError as e:
+        return {
+            "status": "error",
+            "message": f"Anthropic API error: {e.status_code} - {e.message}",
+        }
 
     response_text = response.content[0].text
 
@@ -335,12 +367,28 @@ Content from knowledge base:
 
 Analyze this content and propose a minimal hello world demo."""
 
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        return {
+            "status": "error",
+            "message": f"Failed to connect to Anthropic API: {e}",
+        }
+    except anthropic.RateLimitError as e:
+        return {
+            "status": "error",
+            "message": f"Rate limit exceeded: {e}",
+        }
+    except anthropic.APIStatusError as e:
+        return {
+            "status": "error",
+            "message": f"Anthropic API error: {e.status_code} - {e.message}",
+        }
 
     response_text = response.content[0].text
 
@@ -454,12 +502,28 @@ Reference content from the lesson:
 
 Build the simplest possible demo that proves understanding of this concept."""
 
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        return {
+            "status": "error",
+            "message": f"Failed to connect to Anthropic API: {e}",
+        }
+    except anthropic.RateLimitError as e:
+        return {
+            "status": "error",
+            "message": f"Rate limit exceeded: {e}",
+        }
+    except anthropic.APIStatusError as e:
+        return {
+            "status": "error",
+            "message": f"Anthropic API error: {e.status_code} - {e.message}",
+        }
 
     response_text = response.content[0].text
 
