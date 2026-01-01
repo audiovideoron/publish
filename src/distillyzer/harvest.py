@@ -233,6 +233,7 @@ def harvest_repo(url: str, clone_dir: Path | None = None) -> dict:
     # Index code files
     code_extensions = {".py", ".js", ".ts", ".go", ".rs", ".java", ".cpp", ".c", ".h", ".md", ".txt"}
     files_indexed = 0
+    file_items = []  # Store file data for embedding
 
     for file_path in repo_path.rglob("*"):
         if file_path.is_file() and file_path.suffix in code_extensions:
@@ -244,7 +245,7 @@ def harvest_repo(url: str, clone_dir: Path | None = None) -> dict:
             try:
                 content = file_path.read_text(encoding="utf-8", errors="ignore")
                 if len(content) > 100:  # Skip tiny files
-                    db.create_item(
+                    item_id = db.create_item(
                         source_id=source_id,
                         type="code_file",
                         title=str(rel_path),
@@ -252,6 +253,13 @@ def harvest_repo(url: str, clone_dir: Path | None = None) -> dict:
                         metadata={"extension": file_path.suffix, "size": len(content)},
                     )
                     files_indexed += 1
+                    # Store for embedding
+                    file_items.append({
+                        "item_id": item_id,
+                        "path": str(rel_path),
+                        "content": content,
+                        "extension": file_path.suffix,
+                    })
             except Exception:
                 pass
 
@@ -259,6 +267,7 @@ def harvest_repo(url: str, clone_dir: Path | None = None) -> dict:
         "source_id": source_id,
         "name": repo_name,
         "files_indexed": files_indexed,
+        "file_items": file_items,  # Include file data for embedding
         "repo_path": str(repo_path),
         "status": "cloned",
     }

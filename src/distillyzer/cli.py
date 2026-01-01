@@ -79,8 +79,29 @@ def harvest(
             console.print(f"[green]Cloned:[/green] {result['name']}")
             console.print(f"[green]Files indexed:[/green] {result['files_indexed']}")
 
-            # TODO: Embed code files
-            console.print("[dim]Code embedding not yet implemented[/dim]")
+            # Embed code files
+            if result.get("file_items"):
+                console.print("\n[yellow]Embedding code files...[/yellow]")
+
+                def progress(current, total, path, chunks):
+                    console.print(f"  [{current}/{total}] {path} ({chunks} chunks)")
+
+                embed_result = emb.embed_repo_files(
+                    result["file_items"],
+                    progress_callback=progress,
+                )
+
+                console.print(f"\n[green]Embedded:[/green] {embed_result['total_files']} files, {embed_result['total_chunks']} chunks")
+
+                if embed_result["errors"]:
+                    console.print(f"[yellow]Errors:[/yellow] {len(embed_result['errors'])}")
+                    for err in embed_result["errors"][:3]:
+                        console.print(f"  - {err['path']}: {err['error']}")
+
+                # Auto-regenerate index
+                console.print("[yellow]Updating index...[/yellow]")
+                _regenerate_index()
+                console.print("[green]Index updated[/green]")
 
         elif "youtube.com" in url or "youtu.be" in url:
             # YouTube video

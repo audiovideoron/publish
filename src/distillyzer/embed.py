@@ -285,3 +285,41 @@ def embed_text_content(
 
     db.create_chunks_batch(db_chunks)
     return len(db_chunks)
+
+
+def embed_repo_files(
+    file_items: list[dict],
+    progress_callback: callable = None,
+) -> dict:
+    """
+    Embed code files from a harvested repo.
+    file_items should have: item_id, path, content, extension
+
+    Returns dict with total_files, total_chunks, errors.
+    """
+    total_chunks = 0
+    errors = []
+
+    for i, file_item in enumerate(file_items):
+        try:
+            # Skip non-code files from embedding (keep .md and .txt as text)
+            is_code = file_item["extension"] not in {".md", ".txt"}
+
+            num_chunks = embed_text_content(
+                file_item["item_id"],
+                file_item["content"],
+                is_code=is_code,
+            )
+            total_chunks += num_chunks
+
+            if progress_callback:
+                progress_callback(i + 1, len(file_items), file_item["path"], num_chunks)
+
+        except Exception as e:
+            errors.append({"path": file_item["path"], "error": str(e)})
+
+    return {
+        "total_files": len(file_items),
+        "total_chunks": total_chunks,
+        "errors": errors,
+    }
