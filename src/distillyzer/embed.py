@@ -2,6 +2,8 @@
 
 import logging
 import os
+import threading
+import time
 
 import tiktoken
 from openai import OpenAI, OpenAIError, APIConnectionError, RateLimitError, APITimeoutError
@@ -17,6 +19,143 @@ from tenacity import (
 from . import db
 
 logger = logging.getLogger(__name__)
+
+
+class RateLimiter:
+    """Token bucket rate limiter for API calls.
+
+    Implements a token bucket algorithm to prevent hitting API rate limits.
+    Supports both request-per-minute (RPM) and tokens-per-minute (TPM) limits.
+
+    OpenAI embedding rate limits vary by tier but typically:
+    - Tier 1: 500 RPM, 1M TPM
+    - Tier 2: 500 RPM, 1M TPM
+    - Tier 3+: Higher limits
+
+    Default values are conservative to work across tiers.
+    """
+
+    def __init__(
+        self,
+        requests_per_minute: int = 300,
+        tokens_per_minute: int = 500_000,
+    ):
+        """Initialize rate limiter.
+
+        Args:
+            requests_per_minute: Maximum API requests per minute.
+            tokens_per_minute: Maximum tokens per minute.
+        """
+        self.rpm_limit = requests_per_minute
+        self.tpm_limit = tokens_per_minute
+
+        # Token bucket state
+        self._request_tokens = float(requests_per_minute)
+        self._token_tokens = float(tokens_per_minute)
+        self._last_update = time.monotonic()
+        self._lock = threading.Lock()
+
+        # Refill rates (tokens per second)
+        self._rpm_refill_rate = requests_per_minute / 60.0
+        self._tpm_refill_rate = tokens_per_minute / 60.0
+
+    def _refill_buckets(self) -> None:
+        """Refill token buckets based on elapsed time."""
+        now = time.monotonic()
+        elapsed = now - self._last_update
+        self._last_update = now
+
+        # Refill request bucket
+        self._request_tokens = min(
+            self.rpm_limit,
+            self._request_tokens + elapsed * self._rpm_refill_rate,
+        )
+
+        # Refill token bucket
+        self._token_tokens = min(
+            self.tpm_limit,
+            self._token_tokens + elapsed * self._tpm_refill_rate,
+        )
+
+    def acquire(self, num_tokens: int = 0) -> float:
+        """Acquire permission to make an API call, blocking if necessary.
+
+        Args:
+            num_tokens: Estimated number of tokens in the request.
+
+        Returns:
+            Time spent waiting (in seconds).
+        """
+        wait_time = 0.0
+
+        with self._lock:
+            self._refill_buckets()
+
+            # Calculate wait time if we need to wait
+            request_wait = 0.0
+            token_wait = 0.0
+
+            if self._request_tokens < 1:
+                request_wait = (1 - self._request_tokens) / self._rpm_refill_rate
+
+            if num_tokens > 0 and self._token_tokens < num_tokens:
+                token_wait = (num_tokens - self._token_tokens) / self._tpm_refill_rate
+
+            wait_time = max(request_wait, token_wait)
+
+            if wait_time > 0:
+                logger.debug(f"Rate limiter waiting {wait_time:.2f}s")
+
+        # Wait outside the lock
+        if wait_time > 0:
+            time.sleep(wait_time)
+            with self._lock:
+                self._refill_buckets()
+
+        # Consume tokens
+        with self._lock:
+            self._request_tokens -= 1
+            if num_tokens > 0:
+                self._token_tokens -= num_tokens
+
+        return wait_time
+
+
+# Global rate limiter instance
+# Can be configured via environment variables or replaced at runtime
+_rate_limiter = None
+
+
+def get_rate_limiter() -> RateLimiter:
+    """Get or create the global rate limiter instance."""
+    global _rate_limiter
+    if _rate_limiter is None:
+        rpm = int(os.getenv("OPENAI_RPM_LIMIT", "300"))
+        tpm = int(os.getenv("OPENAI_TPM_LIMIT", "500000"))
+        _rate_limiter = RateLimiter(requests_per_minute=rpm, tokens_per_minute=tpm)
+        logger.info(f"Rate limiter initialized: {rpm} RPM, {tpm} TPM")
+    return _rate_limiter
+
+
+def reset_rate_limiter(
+    requests_per_minute: int = None,
+    tokens_per_minute: int = None,
+) -> RateLimiter:
+    """Reset the global rate limiter with new limits.
+
+    Args:
+        requests_per_minute: New RPM limit (default: from env or 300).
+        tokens_per_minute: New TPM limit (default: from env or 500000).
+
+    Returns:
+        The new rate limiter instance.
+    """
+    global _rate_limiter
+    rpm = requests_per_minute or int(os.getenv("OPENAI_RPM_LIMIT", "300"))
+    tpm = tokens_per_minute or int(os.getenv("OPENAI_TPM_LIMIT", "500000"))
+    _rate_limiter = RateLimiter(requests_per_minute=rpm, tokens_per_minute=tpm)
+    logger.info(f"Rate limiter reset: {rpm} RPM, {tpm} TPM")
+    return _rate_limiter
 
 # Retry configuration for OpenAI API calls
 OPENAI_RETRY_EXCEPTIONS = (APIConnectionError, RateLimitError, APITimeoutError)
@@ -161,9 +300,16 @@ def chunk_code(text: str, max_tokens: int = 500) -> list[str]:
 def get_embedding(text: str) -> list[float]:
     """Get embedding for a single text using OpenAI API.
 
-    Includes automatic retry with exponential backoff for transient errors
-    (connection errors, rate limits, timeouts).
+    Includes:
+    - Proactive rate limiting to prevent hitting API limits
+    - Automatic retry with exponential backoff for transient errors
+      (connection errors, rate limits, timeouts)
     """
+    # Estimate token count for rate limiting
+    token_count = count_tokens(text)
+    rate_limiter = get_rate_limiter()
+    rate_limiter.acquire(num_tokens=token_count)
+
     try:
         response = client.embeddings.create(
             model=EMBEDDING_MODEL,
@@ -181,11 +327,18 @@ def get_embedding(text: str) -> list[float]:
 def get_embeddings_batch(texts: list[str]) -> list[list[float]]:
     """Get embeddings for multiple texts in a single API call.
 
-    Includes automatic retry with exponential backoff for transient errors
-    (connection errors, rate limits, timeouts).
+    Includes:
+    - Proactive rate limiting to prevent hitting API limits
+    - Automatic retry with exponential backoff for transient errors
+      (connection errors, rate limits, timeouts)
     """
     if not texts:
         return []
+
+    # Estimate total token count for rate limiting
+    total_tokens = sum(count_tokens(text) for text in texts)
+    rate_limiter = get_rate_limiter()
+    rate_limiter.acquire(num_tokens=total_tokens)
 
     try:
         response = client.embeddings.create(

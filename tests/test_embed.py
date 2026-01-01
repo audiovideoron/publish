@@ -1,9 +1,135 @@
 """Tests for embedding and chunking functions (embed.py)."""
 
+import time
 import pytest
 from unittest.mock import MagicMock, patch
 
 from distillyzer import embed
+
+
+class TestRateLimiter:
+    """Tests for RateLimiter class."""
+
+    def test_rate_limiter_init(self):
+        """Test RateLimiter initialization."""
+        limiter = embed.RateLimiter(requests_per_minute=100, tokens_per_minute=50000)
+        assert limiter.rpm_limit == 100
+        assert limiter.tpm_limit == 50000
+
+    def test_rate_limiter_acquire_no_wait(self):
+        """Test acquiring when bucket is full (no wait needed)."""
+        limiter = embed.RateLimiter(requests_per_minute=100, tokens_per_minute=50000)
+
+        start = time.monotonic()
+        wait_time = limiter.acquire(num_tokens=100)
+        elapsed = time.monotonic() - start
+
+        # Should not wait when bucket is full
+        assert wait_time < 0.1
+        assert elapsed < 0.1
+
+    def test_rate_limiter_acquire_waits_on_rpm(self):
+        """Test that acquire waits when request bucket is exhausted."""
+        # Very low RPM to trigger waiting quickly
+        limiter = embed.RateLimiter(requests_per_minute=60, tokens_per_minute=1000000)
+
+        # Exhaust the request bucket
+        for _ in range(60):
+            limiter.acquire(num_tokens=0)
+
+        # Next acquire should need to wait
+        start = time.monotonic()
+        wait_time = limiter.acquire(num_tokens=0)
+        elapsed = time.monotonic() - start
+
+        # Should wait approximately 1 second (refill rate is 1 per second)
+        assert wait_time > 0.5
+        assert elapsed > 0.5
+
+    def test_rate_limiter_acquire_waits_on_tpm(self):
+        """Test that acquire waits when token bucket is exhausted."""
+        # Very low TPM to trigger waiting quickly
+        limiter = embed.RateLimiter(requests_per_minute=1000, tokens_per_minute=60)
+
+        # Exhaust the token bucket
+        limiter.acquire(num_tokens=60)
+
+        # Next acquire should need to wait
+        start = time.monotonic()
+        wait_time = limiter.acquire(num_tokens=10)
+        elapsed = time.monotonic() - start
+
+        # Should wait for token refill
+        assert wait_time > 0.1
+        assert elapsed > 0.1
+
+    def test_rate_limiter_refills_over_time(self):
+        """Test that buckets refill over time."""
+        limiter = embed.RateLimiter(requests_per_minute=60, tokens_per_minute=60)
+
+        # Exhaust both buckets
+        limiter.acquire(num_tokens=60)
+
+        # Wait for refill
+        time.sleep(1.1)
+
+        # Should be able to acquire without waiting (or minimal wait)
+        start = time.monotonic()
+        wait_time = limiter.acquire(num_tokens=1)
+        elapsed = time.monotonic() - start
+
+        # Should not wait significantly since buckets refilled
+        assert wait_time < 0.5
+        assert elapsed < 0.5
+
+
+class TestRateLimiterFunctions:
+    """Tests for rate limiter helper functions."""
+
+    def test_get_rate_limiter_creates_instance(self):
+        """Test that get_rate_limiter creates a rate limiter."""
+        # Reset global state
+        embed._rate_limiter = None
+
+        limiter = embed.get_rate_limiter()
+        assert limiter is not None
+        assert isinstance(limiter, embed.RateLimiter)
+
+    def test_get_rate_limiter_returns_same_instance(self):
+        """Test that get_rate_limiter returns the same instance."""
+        embed._rate_limiter = None
+        limiter1 = embed.get_rate_limiter()
+        limiter2 = embed.get_rate_limiter()
+        assert limiter1 is limiter2
+
+    def test_reset_rate_limiter(self):
+        """Test resetting the rate limiter with new limits."""
+        embed._rate_limiter = None
+        old_limiter = embed.get_rate_limiter()
+
+        new_limiter = embed.reset_rate_limiter(
+            requests_per_minute=200,
+            tokens_per_minute=100000,
+        )
+
+        assert new_limiter is not old_limiter
+        assert new_limiter.rpm_limit == 200
+        assert new_limiter.tpm_limit == 100000
+        assert embed.get_rate_limiter() is new_limiter
+
+    def test_get_rate_limiter_from_env(self):
+        """Test that rate limiter respects environment variables."""
+        embed._rate_limiter = None
+
+        with patch.dict("os.environ", {"OPENAI_RPM_LIMIT": "150", "OPENAI_TPM_LIMIT": "75000"}):
+            # Need to reset to pick up new env vars
+            embed._rate_limiter = None
+            limiter = embed.get_rate_limiter()
+            assert limiter.rpm_limit == 150
+            assert limiter.tpm_limit == 75000
+
+        # Clean up
+        embed._rate_limiter = None
 
 
 class TestCountTokens:
