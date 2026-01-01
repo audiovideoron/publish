@@ -19,6 +19,8 @@ projects_app = typer.Typer(help="Manage projects with faceted organization.")
 app.add_typer(projects_app, name="project")
 sources_app = typer.Typer(help="Manage knowledge sources (channels, repos).")
 app.add_typer(sources_app, name="sources")
+items_app = typer.Typer(help="Manage harvested items (videos, articles, code files).")
+app.add_typer(items_app, name="items")
 console = Console()
 
 
@@ -1526,6 +1528,103 @@ def sources_delete(
             console.print(f"[green]Deleted:[/green] {source['name']}")
         else:
             console.print(f"[red]Failed to delete source[/red]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+# --- Items subcommands ---
+
+@items_app.command("list")
+def items_list(
+    source_id: int = typer.Option(None, "--source", "-s", help="Filter by source ID"),
+):
+    """List all items (videos, articles, code files)."""
+    try:
+        items = db.list_items(source_id=source_id)
+
+        if not items:
+            if source_id:
+                console.print(f"[dim]No items found for source ID {source_id}.[/dim]")
+            else:
+                console.print("[dim]No items found.[/dim]")
+            console.print("[dim]Harvest content to create items:[/dim] dz harvest <url>")
+            return
+
+        table = Table(show_header=True)
+        table.add_column("ID", style="dim", width=4)
+        table.add_column("Type", style="yellow", width=10)
+        table.add_column("Title", style="cyan")
+        table.add_column("Source", style="dim", width=8)
+
+        for item in items:
+            title = item.get("title") or ""
+            if len(title) > 50:
+                title = title[:47] + "..."
+            source = str(item.get("source_id") or "-")
+            table.add_row(
+                str(item["id"]),
+                item["type"],
+                title,
+                source,
+            )
+
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(items)} items[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@items_app.command("delete")
+def items_delete(
+    item_id: int = typer.Argument(..., help="Item ID to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+):
+    """Delete an item by ID.
+
+    This will also delete all associated chunks (embeddings) for this item.
+
+    Example:
+        dz items delete 5
+        dz items delete 5 --force
+    """
+    try:
+        # First check if item exists
+        items = db.list_items()
+        item = next((i for i in items if i["id"] == item_id), None)
+
+        if not item:
+            console.print(f"[red]Item not found:[/red] ID {item_id}")
+            console.print("[dim]Use 'dz items list' to see available items[/dim]")
+            return
+
+        # Show item details
+        console.print(f"[yellow]Item to delete:[/yellow]")
+        console.print(f"  ID: {item['id']}")
+        console.print(f"  Type: {item['type']}")
+        console.print(f"  Title: {item['title']}")
+        if item.get("url"):
+            console.print(f"  URL: {item['url']}")
+        if item.get("source_id"):
+            console.print(f"  Source ID: {item['source_id']}")
+
+        console.print("\n[yellow]Warning:[/yellow] This will also delete all chunks for this item.")
+
+        if not force:
+            if not typer.confirm("\nDelete this item?"):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        if db.delete_item(item_id):
+            console.print(f"[green]Deleted:[/green] {item['title']}")
+
+            # Regenerate index after deletion
+            console.print("[yellow]Updating index...[/yellow]")
+            _regenerate_index()
+            console.print("[green]Index updated[/green]")
+        else:
+            console.print(f"[red]Failed to delete item[/red]")
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
