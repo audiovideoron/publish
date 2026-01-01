@@ -1166,6 +1166,135 @@ def get_projects_needing_embeddings() -> list[dict]:
             ]
 
 
+# --- Project Outputs ---
+
+def create_project_output(
+    project_id: int,
+    name: str,
+    type: str | None = None,
+    path: str | None = None,
+    metadata: dict | None = None,
+) -> int:
+    """Create a project output and return its ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO project_outputs (project_id, name, type, path, metadata)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (project_id, name, type, path, Jsonb(metadata) if metadata else None),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result[0]
+
+
+def get_project_output(id: int) -> dict | None:
+    """Get a project output by ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, project_id, name, type, path, metadata, created_at
+                FROM project_outputs WHERE id = %s
+                """,
+                (id,),
+            )
+            row = cur.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "project_id": row[1],
+                    "name": row[2],
+                    "type": row[3],
+                    "path": row[4],
+                    "metadata": row[5],
+                    "created_at": row[6],
+                }
+            return None
+
+
+def list_project_outputs(project_id: int | None = None) -> list[dict]:
+    """List all project outputs, optionally filtered by project_id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if project_id is not None:
+                cur.execute(
+                    """
+                    SELECT id, project_id, name, type, path, metadata, created_at
+                    FROM project_outputs WHERE project_id = %s ORDER BY id
+                    """,
+                    (project_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, project_id, name, type, path, metadata, created_at
+                    FROM project_outputs ORDER BY id
+                    """
+                )
+            return [
+                {
+                    "id": row[0],
+                    "project_id": row[1],
+                    "name": row[2],
+                    "type": row[3],
+                    "path": row[4],
+                    "metadata": row[5],
+                    "created_at": row[6],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def update_project_output(
+    id: int,
+    name: str | None = None,
+    type: str | None = None,
+    path: str | None = None,
+    metadata: dict | None = None,
+) -> dict | None:
+    """Update a project output and return the updated output."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE project_outputs
+                SET name = COALESCE(%s, name),
+                    type = COALESCE(%s, type),
+                    path = COALESCE(%s, path),
+                    metadata = COALESCE(%s, metadata)
+                WHERE id = %s
+                RETURNING id, project_id, name, type, path, metadata, created_at
+                """,
+                (name, type, path, Jsonb(metadata) if metadata else None, id),
+            )
+            row = cur.fetchone()
+            conn.commit()
+            if row:
+                return {
+                    "id": row[0],
+                    "project_id": row[1],
+                    "name": row[2],
+                    "type": row[3],
+                    "path": row[4],
+                    "metadata": row[5],
+                    "created_at": row[6],
+                }
+            return None
+
+
+def delete_project_output(id: int) -> bool:
+    """Delete a project output by ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM project_outputs WHERE id = %s", (id,))
+            conn.commit()
+            return cur.rowcount > 0
+
+
 # --- Stats ---
 
 def get_stats() -> dict:
