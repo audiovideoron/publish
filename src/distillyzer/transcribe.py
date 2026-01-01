@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from openai import OpenAI
+from openai import OpenAI, APIError, APIConnectionError, RateLimitError, AuthenticationError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,13 +22,22 @@ def transcribe_audio(audio_path: str | Path, language: str | None = None) -> dic
 
     with open(audio_path, "rb") as audio_file:
         # Use verbose_json to get word-level timestamps
-        response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-            response_format="verbose_json",
-            language=language,
-            timestamp_granularities=["segment"],
-        )
+        try:
+            response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="verbose_json",
+                language=language,
+                timestamp_granularities=["segment"],
+            )
+        except AuthenticationError as e:
+            raise RuntimeError(f"OpenAI authentication failed. Check your API key: {e}") from e
+        except RateLimitError as e:
+            raise RuntimeError(f"OpenAI rate limit exceeded. Please try again later: {e}") from e
+        except APIConnectionError as e:
+            raise RuntimeError(f"Failed to connect to OpenAI API: {e}") from e
+        except APIError as e:
+            raise RuntimeError(f"OpenAI API error during transcription: {e}") from e
 
     # Extract segments with timestamps
     segments = []
