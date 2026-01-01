@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-from . import db, harvest as harv, transcribe, embed as emb, query as q, visualize as viz, extract as ext, artifacts as art
+from . import db, harvest as harv, transcribe, embed as emb, query as q, visualize as viz, extract as ext, artifacts as art, search_queries, scoring
 
 app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
 artifacts_app = typer.Typer(help="Manage and use extracted artifacts.")
@@ -21,6 +21,8 @@ sources_app = typer.Typer(help="Manage knowledge sources (channels, repos).")
 app.add_typer(sources_app, name="sources")
 items_app = typer.Typer(help="Manage harvested items (videos, articles, code files).")
 app.add_typer(items_app, name="items")
+suggest_app = typer.Typer(help="Get content suggestions based on project facets.")
+app.add_typer(suggest_app, name="suggest")
 console = Console()
 
 
@@ -1698,6 +1700,410 @@ def items_delete(
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
+
+
+# --- Suggest subcommands ---
+
+def _format_views(view_count: int | None) -> str:
+    """Format view count for display."""
+    if view_count is None:
+        return "?"
+    if view_count >= 1_000_000:
+        return f"{view_count / 1_000_000:.1f}M"
+    if view_count >= 1_000:
+        return f"{view_count / 1_000:.1f}K"
+    return str(view_count)
+
+
+def _display_project_facets(project: dict) -> None:
+    """Display project facets as context for suggestions."""
+    needs = project.get("facet_needs", [])
+    uses = project.get("facet_uses", [])
+    about = project.get("facet_about", [])
+
+    facet_parts = []
+    if needs:
+        facet_parts.append(f"NEEDS=[{', '.join(needs)}]")
+    if uses:
+        facet_parts.append(f"USES=[{', '.join(uses)}]")
+    if about:
+        facet_parts.append(f"ABOUT=[{', '.join(about)}]")
+
+    if facet_parts:
+        console.print(f"[dim]Based on: {', '.join(facet_parts)}[/dim]\n")
+    else:
+        console.print("[yellow]Warning: Project has no facets defined.[/yellow]")
+        console.print("[dim]Add facets with: dz project update <name> --needs 'topic1,topic2'[/dim]\n")
+
+
+def _suggest_youtube(
+    project: dict,
+    min_score: int = 40,
+    limit: int = 10,
+    max_queries: int = 3,
+) -> list[dict]:
+    """Search YouTube and score videos based on project facets.
+
+    Args:
+        project: Project dictionary with facets
+        min_score: Minimum quality score (0-100)
+        limit: Maximum results to return
+        max_queries: Maximum number of search queries to run
+
+    Returns:
+        List of scored video dictionaries
+    """
+    # Generate search queries from project facets
+    query_set = search_queries.generate_from_project(project)
+    youtube_queries = query_set.youtube_queries()[:max_queries]
+
+    if not youtube_queries:
+        return []
+
+    all_videos = []
+    seen_ids = set()
+
+    for query in youtube_queries:
+        try:
+            # Search YouTube (limit per query to avoid too many results)
+            videos = harv.search_youtube(query, limit=min(limit, 10))
+
+            for video in videos:
+                video_id = video.get("id")
+                if video_id and video_id not in seen_ids:
+                    seen_ids.add(video_id)
+
+                    # Get more detailed info for scoring
+                    try:
+                        info = harv.get_video_info(video["url"])
+                        view_count = info.get("view_count")
+                        like_count = info.get("like_count")
+                        duration = info.get("duration")
+                        description = info.get("description", "")
+                    except Exception:
+                        # Fall back to basic info from search
+                        view_count = None
+                        like_count = None
+                        duration = video.get("duration")
+                        description = ""
+
+                    # Score the video
+                    breakdown = scoring.score_video(
+                        title=video.get("title", ""),
+                        view_count=view_count,
+                        like_count=like_count,
+                        duration=duration,
+                        description=description,
+                    )
+
+                    if breakdown.total >= min_score:
+                        video["score"] = breakdown.total
+                        video["score_breakdown"] = breakdown.to_dict()
+                        video["view_count"] = view_count
+                        video["duration"] = duration
+                        video["search_query"] = query
+                        all_videos.append(video)
+
+        except Exception as e:
+            console.print(f"[yellow]Warning: Search failed for '{query}': {e}[/yellow]")
+
+    # Sort by score and limit
+    all_videos.sort(key=lambda v: v.get("score", 0), reverse=True)
+    return all_videos[:limit]
+
+
+def _suggest_github(
+    project: dict,
+    min_score: int = 40,
+    limit: int = 10,
+    max_queries: int = 3,
+) -> list[dict]:
+    """Search GitHub and score repos based on project facets.
+
+    Note: This is a placeholder that returns empty results since
+    GitHub search is not yet implemented in the harvest module.
+
+    Args:
+        project: Project dictionary with facets
+        min_score: Minimum quality score (0-100)
+        limit: Maximum results to return
+        max_queries: Maximum number of search queries to run
+
+    Returns:
+        List of scored repository dictionaries (currently empty)
+    """
+    # Generate search queries from project facets
+    query_set = search_queries.generate_from_project(project)
+    github_queries = query_set.github_queries()[:max_queries]
+
+    if not github_queries:
+        return []
+
+    # Note: GitHub search is not yet implemented in harvest.py
+    # This is a placeholder that could be extended with GitHub API integration
+    console.print("[dim]GitHub search is not yet implemented.[/dim]")
+    console.print("[dim]Generated queries that would be used:[/dim]")
+    for i, query in enumerate(github_queries[:5], 1):
+        console.print(f"  {i}. {query}")
+
+    return []
+
+
+@suggest_app.command("youtube")
+def suggest_youtube(
+    project_name: str = typer.Argument(..., help="Project name to get suggestions for"),
+    min_score: int = typer.Option(40, "--min-score", "-m", help="Minimum quality score (0-100)"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum results to show"),
+    max_queries: int = typer.Option(3, "--queries", "-q", help="Maximum search queries to run"),
+):
+    """Suggest YouTube videos based on project facets.
+
+    Searches YouTube using queries generated from the project's NEEDS, USES,
+    and ABOUT facets, then scores and ranks the results by educational quality.
+
+    Example:
+        dz suggest youtube my-project
+        dz suggest youtube my-project --min-score 60 --limit 5
+    """
+    try:
+        # Load project
+        project = db.get_project(project_name)
+        if not project:
+            console.print(f"[red]Project not found:[/red] {project_name}")
+            console.print("[dim]Use 'dz project list' to see available projects[/dim]")
+            return
+
+        console.print(f"[yellow]Suggestions for project:[/yellow] {project_name}\n")
+        _display_project_facets(project)
+
+        console.print("[dim]Searching YouTube...[/dim]\n")
+
+        videos = _suggest_youtube(
+            project,
+            min_score=min_score,
+            limit=limit,
+            max_queries=max_queries,
+        )
+
+        if not videos:
+            console.print("[dim]No videos found matching your criteria.[/dim]")
+            console.print("[dim]Try lowering --min-score or adding more project facets.[/dim]")
+            return
+
+        # Display results table
+        console.print(f"[green]YouTube Videos ({len(videos)} results):[/green]")
+        table = Table(show_header=True)
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Title", style="cyan", no_wrap=False, max_width=50)
+        table.add_column("Score", style="yellow", justify="right", width=6)
+        table.add_column("Views", style="green", justify="right", width=8)
+        table.add_column("Channel", style="dim", max_width=20)
+
+        for i, video in enumerate(videos, 1):
+            title = video.get("title", "?")
+            if len(title) > 50:
+                title = title[:47] + "..."
+            channel = video.get("channel", "?")
+            if len(channel) > 20:
+                channel = channel[:17] + "..."
+
+            table.add_row(
+                str(i),
+                title,
+                str(video.get("score", "?")),
+                _format_views(video.get("view_count")),
+                channel,
+            )
+
+        console.print(table)
+        console.print("\n[dim]To harvest a video:[/dim] dz harvest <url>")
+
+        # Show URLs for easy copying
+        console.print("\n[dim]Video URLs:[/dim]")
+        for i, video in enumerate(videos[:5], 1):
+            console.print(f"  {i}. {video.get('url', '?')}")
+        if len(videos) > 5:
+            console.print(f"  [dim]... and {len(videos) - 5} more[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
+@suggest_app.command("github")
+def suggest_github(
+    project_name: str = typer.Argument(..., help="Project name to get suggestions for"),
+    min_score: int = typer.Option(40, "--min-score", "-m", help="Minimum quality score (0-100)"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum results to show"),
+    max_queries: int = typer.Option(3, "--queries", "-q", help="Maximum search queries to run"),
+):
+    """Suggest GitHub repositories based on project facets.
+
+    Searches GitHub using queries generated from the project's NEEDS, USES,
+    and ABOUT facets, then scores and ranks the results.
+
+    Note: GitHub search is not yet fully implemented. This command shows
+    the queries that would be used.
+
+    Example:
+        dz suggest github my-project
+        dz suggest github my-project --min-score 60 --limit 5
+    """
+    try:
+        # Load project
+        project = db.get_project(project_name)
+        if not project:
+            console.print(f"[red]Project not found:[/red] {project_name}")
+            console.print("[dim]Use 'dz project list' to see available projects[/dim]")
+            return
+
+        console.print(f"[yellow]Suggestions for project:[/yellow] {project_name}\n")
+        _display_project_facets(project)
+
+        repos = _suggest_github(
+            project,
+            min_score=min_score,
+            limit=limit,
+            max_queries=max_queries,
+        )
+
+        if not repos:
+            console.print("\n[dim]No GitHub repositories to display.[/dim]")
+            console.print("[dim]GitHub search integration coming soon![/dim]")
+            return
+
+        # Display results (when implemented)
+        console.print(f"\n[green]GitHub Repositories ({len(repos)} results):[/green]")
+        table = Table(show_header=True)
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Repository", style="cyan", no_wrap=False)
+        table.add_column("Score", style="yellow", justify="right", width=6)
+        table.add_column("Stars", style="green", justify="right", width=8)
+        table.add_column("Description", style="dim")
+
+        for i, repo in enumerate(repos, 1):
+            table.add_row(
+                str(i),
+                repo.get("name", "?"),
+                str(repo.get("score", "?")),
+                str(repo.get("stars", "?")),
+                (repo.get("description", "?") or "")[:40],
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
+@suggest_app.command("all")
+def suggest_all(
+    project_name: str = typer.Argument(..., help="Project name to get suggestions for"),
+    min_score: int = typer.Option(40, "--min-score", "-m", help="Minimum quality score (0-100)"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum results per source"),
+    max_queries: int = typer.Option(3, "--queries", "-q", help="Maximum search queries per source"),
+):
+    """Suggest content from all sources (YouTube and GitHub).
+
+    Combines suggestions from YouTube videos and GitHub repositories
+    based on the project's facets.
+
+    Example:
+        dz suggest all my-project
+        dz suggest all my-project --min-score 50 --limit 5
+    """
+    try:
+        # Load project
+        project = db.get_project(project_name)
+        if not project:
+            console.print(f"[red]Project not found:[/red] {project_name}")
+            console.print("[dim]Use 'dz project list' to see available projects[/dim]")
+            return
+
+        console.print(f"[yellow]Suggestions for project:[/yellow] {project_name}\n")
+        _display_project_facets(project)
+
+        # YouTube suggestions
+        console.print("[dim]Searching YouTube...[/dim]\n")
+        videos = _suggest_youtube(
+            project,
+            min_score=min_score,
+            limit=limit,
+            max_queries=max_queries,
+        )
+
+        if videos:
+            console.print(f"[green]YouTube Videos ({len(videos)} results):[/green]")
+            table = Table(show_header=True)
+            table.add_column("#", style="dim", width=3)
+            table.add_column("Title", style="cyan", no_wrap=False, max_width=50)
+            table.add_column("Score", style="yellow", justify="right", width=6)
+            table.add_column("Views", style="green", justify="right", width=8)
+            table.add_column("Channel", style="dim", max_width=20)
+
+            for i, video in enumerate(videos, 1):
+                title = video.get("title", "?")
+                if len(title) > 50:
+                    title = title[:47] + "..."
+                channel = video.get("channel", "?")
+                if len(channel) > 20:
+                    channel = channel[:17] + "..."
+
+                table.add_row(
+                    str(i),
+                    title,
+                    str(video.get("score", "?")),
+                    _format_views(video.get("view_count")),
+                    channel,
+                )
+
+            console.print(table)
+        else:
+            console.print("[dim]No YouTube videos found matching your criteria.[/dim]")
+
+        # GitHub suggestions
+        console.print()
+        repos = _suggest_github(
+            project,
+            min_score=min_score,
+            limit=limit,
+            max_queries=max_queries,
+        )
+
+        if repos:
+            console.print(f"\n[green]GitHub Repositories ({len(repos)} results):[/green]")
+            table = Table(show_header=True)
+            table.add_column("#", style="dim", width=3)
+            table.add_column("Repository", style="cyan", no_wrap=False)
+            table.add_column("Score", style="yellow", justify="right", width=6)
+            table.add_column("Stars", style="green", justify="right", width=8)
+            table.add_column("Description", style="dim")
+
+            for i, repo in enumerate(repos, 1):
+                table.add_row(
+                    str(i),
+                    repo.get("name", "?"),
+                    str(repo.get("score", "?")),
+                    str(repo.get("stars", "?")),
+                    (repo.get("description", "?") or "")[:40],
+                )
+
+            console.print(table)
+
+        # Summary
+        console.print("\n[dim]To harvest content:[/dim]")
+        console.print("  dz harvest <youtube_url>")
+        console.print("  dz harvest <github_url>")
+
+        if videos:
+            console.print("\n[dim]Top YouTube URLs:[/dim]")
+            for i, video in enumerate(videos[:3], 1):
+                console.print(f"  {i}. {video.get('url', '?')}")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
 
 
 if __name__ == "__main__":
