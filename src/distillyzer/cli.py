@@ -436,6 +436,76 @@ def stats():
 
 
 @app.command()
+def embed(
+    item_id: int = typer.Argument(None, help="Item ID to re-embed (omit for --all)"),
+    all_items: bool = typer.Option(False, "--all", "-a", help="Re-embed all items"),
+):
+    """Re-embed existing items without re-harvesting.
+
+    Deletes old chunks and creates new embeddings using current settings.
+    Useful when embedding model or chunking strategy changes.
+
+    Examples:
+        dz embed 5           # Re-embed item with ID 5
+        dz embed --all       # Re-embed all items
+    """
+    try:
+        if all_items:
+            console.print("[yellow]Re-embedding all items...[/yellow]\n")
+
+            def progress(current, total, title, status):
+                status_icon = "[green]OK[/green]" if status == "success" else "[red]FAIL[/red]"
+                title_short = title[:50] if title else "?"
+                console.print(f"  [{current}/{total}] {title_short} {status_icon}")
+
+            result = emb.reembed_all_items(progress_callback=progress)
+
+            console.print(f"\n[green]Completed:[/green] {result['successful']}/{result['total_items']} items")
+            console.print(f"[dim]Old chunks deleted:[/dim] {result['total_old_chunks']}")
+            console.print(f"[dim]New chunks created:[/dim] {result['total_new_chunks']}")
+
+            if result["errors"]:
+                console.print(f"\n[yellow]Errors ({len(result['errors'])}):[/yellow]")
+                for err in result["errors"][:5]:
+                    console.print(f"  - [{err['item_id']}] {err['title']}: {err['error']}")
+                if len(result["errors"]) > 5:
+                    console.print(f"  ... and {len(result['errors']) - 5} more")
+
+            # Update index after re-embedding
+            console.print("\n[yellow]Updating index...[/yellow]")
+            _regenerate_index()
+            console.print("[green]Index updated[/green]")
+
+        elif item_id is not None:
+            console.print(f"[yellow]Re-embedding item {item_id}...[/yellow]\n")
+
+            result = emb.reembed_item(item_id)
+
+            if result["status"] == "success":
+                console.print(f"[green]Re-embedded:[/green] {result['title']}")
+                console.print(f"[dim]Type:[/dim] {result['type']}")
+                console.print(f"[dim]Old chunks deleted:[/dim] {result['old_chunks']}")
+                console.print(f"[dim]New chunks created:[/dim] {result['new_chunks']}")
+
+                # Update index after re-embedding
+                console.print("\n[yellow]Updating index...[/yellow]")
+                _regenerate_index()
+                console.print("[green]Index updated[/green]")
+            else:
+                console.print(f"[red]Error:[/red] {result['error']}")
+
+        else:
+            console.print("[red]Error:[/red] Provide an item ID or use --all")
+            console.print("[dim]Examples:[/dim]")
+            console.print("  dz embed 5       # Re-embed item 5")
+            console.print("  dz embed --all   # Re-embed all items")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
+@app.command()
 def visualize(
     concept: str,
     output_dir: str = typer.Option("images", "--output", "-o", help="Output directory"),

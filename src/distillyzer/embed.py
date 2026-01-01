@@ -504,6 +504,130 @@ def embed_text_content(
     return len(db_chunks)
 
 
+def reembed_item(item_id: int) -> dict:
+    """
+    Re-embed an existing item by deleting old chunks and creating new embeddings.
+
+    This preserves the item record and metadata but regenerates all embeddings.
+    Useful when embedding model or chunking strategy changes.
+
+    Returns dict with:
+    - item_id: The item ID
+    - title: Item title
+    - type: Item type (video, article, code_file)
+    - old_chunks: Number of chunks deleted
+    - new_chunks: Number of new chunks created
+    - status: 'success' or 'error'
+    - error: Error message (if status is 'error')
+    """
+    # Get item info
+    item = db.get_item_by_id(item_id)
+    if not item:
+        return {
+            "item_id": item_id,
+            "title": None,
+            "type": None,
+            "old_chunks": 0,
+            "new_chunks": 0,
+            "status": "error",
+            "error": f"Item {item_id} not found",
+        }
+
+    # Get existing content before deleting chunks
+    content = db.get_item_content(item_id)
+    if not content:
+        return {
+            "item_id": item_id,
+            "title": item["title"],
+            "type": item["type"],
+            "old_chunks": 0,
+            "new_chunks": 0,
+            "status": "error",
+            "error": "No content found for item",
+        }
+
+    # Delete old chunks
+    old_chunks = db.delete_chunks_for_item(item_id)
+
+    # Determine if code or text based on item type
+    is_code = item["type"] == "code_file"
+
+    # Re-embed with new chunks
+    try:
+        new_chunks = embed_text_content(item_id, content, is_code=is_code)
+        return {
+            "item_id": item_id,
+            "title": item["title"],
+            "type": item["type"],
+            "old_chunks": old_chunks,
+            "new_chunks": new_chunks,
+            "status": "success",
+        }
+    except Exception as e:
+        return {
+            "item_id": item_id,
+            "title": item["title"],
+            "type": item["type"],
+            "old_chunks": old_chunks,
+            "new_chunks": 0,
+            "status": "error",
+            "error": str(e),
+        }
+
+
+def reembed_all_items(
+    progress_callback: callable = None,
+) -> dict:
+    """
+    Re-embed all items in the database.
+
+    Args:
+        progress_callback: Optional callback(current, total, item_title, status)
+
+    Returns dict with:
+    - total_items: Number of items processed
+    - successful: Number of items successfully re-embedded
+    - failed: Number of items that failed
+    - total_old_chunks: Total chunks deleted
+    - total_new_chunks: Total new chunks created
+    - errors: List of error details
+    """
+    items = db.list_items()
+    total = len(items)
+    successful = 0
+    failed = 0
+    total_old_chunks = 0
+    total_new_chunks = 0
+    errors = []
+
+    for i, item in enumerate(items):
+        result = reembed_item(item["id"])
+
+        if result["status"] == "success":
+            successful += 1
+            total_old_chunks += result["old_chunks"]
+            total_new_chunks += result["new_chunks"]
+        else:
+            failed += 1
+            errors.append({
+                "item_id": item["id"],
+                "title": item["title"],
+                "error": result.get("error", "Unknown error"),
+            })
+
+        if progress_callback:
+            progress_callback(i + 1, total, item["title"], result["status"])
+
+    return {
+        "total_items": total,
+        "successful": successful,
+        "failed": failed,
+        "total_old_chunks": total_old_chunks,
+        "total_new_chunks": total_new_chunks,
+        "errors": errors,
+    }
+
+
 def embed_repo_files(
     file_items: list[dict],
     progress_callback: callable = None,

@@ -304,6 +304,27 @@ def get_item_by_url(url: str) -> dict | None:
             return None
 
 
+def get_item_by_id(id: int) -> dict | None:
+    """Get an item by ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, source_id, type, title, url, metadata FROM items WHERE id = %s",
+                (id,),
+            )
+            row = cur.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "source_id": row[1],
+                    "type": row[2],
+                    "title": row[3],
+                    "url": row[4],
+                    "metadata": row[5],
+                }
+            return None
+
+
 def list_items(source_id: int | None = None) -> list[dict]:
     """Return all items, optionally filtered by source_id."""
     with get_connection() as conn:
@@ -436,6 +457,36 @@ def delete_chunk(id: int) -> bool:
             cur.execute("DELETE FROM chunks WHERE id = %s", (id,))
             conn.commit()
             return cur.rowcount > 0
+
+
+def delete_chunks_for_item(item_id: int) -> int:
+    """Delete all chunks for an item. Returns number of chunks deleted."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM chunks WHERE item_id = %s", (item_id,))
+            conn.commit()
+            return cur.rowcount
+
+
+def get_item_content(item_id: int) -> str | None:
+    """Get the concatenated content of all chunks for an item.
+
+    Returns the full text content by joining all chunks in order.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT content FROM chunks
+                WHERE item_id = %s
+                ORDER BY chunk_index
+                """,
+                (item_id,),
+            )
+            rows = cur.fetchall()
+            if not rows:
+                return None
+            return "\n\n".join(row[0] for row in rows)
 
 
 def search_chunks(query_embedding: list[float], limit: int = 10) -> list[dict]:
