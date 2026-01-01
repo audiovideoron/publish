@@ -857,6 +857,56 @@ def get_project_skills(project_id: int) -> list[dict]:
             ]
 
 
+def get_skill_projects(skill_id: int) -> list[dict]:
+    """Get all projects linked to a skill."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.name, p.description, p.status, p.created_at
+                FROM projects p
+                JOIN project_skills ps ON p.id = ps.project_id
+                WHERE ps.skill_id = %s
+                ORDER BY p.name
+                """,
+                (skill_id,),
+            )
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "description": row[2],
+                    "status": row[3],
+                    "created_at": row[4],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def list_project_skill_links() -> list[dict]:
+    """List all project-skill links."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ps.project_id, ps.skill_id, p.name as project_name, s.name as skill_name
+                FROM project_skills ps
+                JOIN projects p ON ps.project_id = p.id
+                JOIN skills s ON ps.skill_id = s.id
+                ORDER BY p.name, s.name
+                """
+            )
+            return [
+                {
+                    "project_id": row[0],
+                    "skill_id": row[1],
+                    "project_name": row[2],
+                    "skill_name": row[3],
+                }
+                for row in cur.fetchall()
+            ]
+
+
 # --- Project Embeddings ---
 
 def update_project_embeddings(
