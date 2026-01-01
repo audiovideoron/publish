@@ -148,6 +148,16 @@ from .visualize import (
     generate_from_chunk,
 )
 
+# Scoring
+from .scoring import (
+    score_video,
+    filter_videos_by_score,
+    is_educational,
+    ScoreBreakdown,
+    EDUCATIONAL_KEYWORDS,
+    NEGATIVE_KEYWORDS,
+)
+
 # CLI app
 from .cli import app
 
@@ -272,4 +282,11 @@ __all__ = [
     # Visualize
     "generate_image",
     "generate_from_chunk",
+    # Scoring
+    "score_video",
+    "filter_videos_by_score",
+    "is_educational",
+    "ScoreBreakdown",
+    "EDUCATIONAL_KEYWORDS",
+    "NEGATIVE_KEYWORDS",
 ]
