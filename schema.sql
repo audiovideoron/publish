@@ -66,10 +66,10 @@ CREATE TABLE projects (
     facet_uses JSONB DEFAULT '[]',
     facet_needs JSONB DEFAULT '[]',
 
-    -- Embeddings for semantic matching (add later)
-    -- embedding_about vector(1536),
-    -- embedding_uses vector(1536),
-    -- embedding_needs vector(1536),
+    -- Embeddings for semantic matching (cross-pollination)
+    embedding_about vector(1536),
+    embedding_uses vector(1536),
+    embedding_needs vector(1536),
 
     -- Link to beads molecule
     beads_epic_id VARCHAR(50),

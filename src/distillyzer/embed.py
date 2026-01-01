@@ -194,6 +194,65 @@ def embed_transcript_chunks(
     return len(db_chunks)
 
 
+def embed_project_facets(project_id: int) -> dict:
+    """
+    Embed a project's facets (about, uses, needs) for cross-pollination.
+    Returns dict with counts of embedded facets.
+    """
+    project = db.get_project_by_id(project_id)
+    if not project:
+        raise ValueError(f"Project {project_id} not found")
+
+    embedded = {"about": False, "uses": False, "needs": False}
+
+    # Embed each non-empty facet as a combined string
+    if project.get("facet_about"):
+        text = ", ".join(project["facet_about"])
+        embedding = get_embedding(f"About: {text}")
+        db.update_project_embeddings(project_id, embedding_about=embedding)
+        embedded["about"] = True
+
+    if project.get("facet_uses"):
+        text = ", ".join(project["facet_uses"])
+        embedding = get_embedding(f"Uses: {text}")
+        db.update_project_embeddings(project_id, embedding_uses=embedding)
+        embedded["uses"] = True
+
+    if project.get("facet_needs"):
+        text = ", ".join(project["facet_needs"])
+        embedding = get_embedding(f"Needs: {text}")
+        db.update_project_embeddings(project_id, embedding_needs=embedding)
+        embedded["needs"] = True
+
+    return embedded
+
+
+def embed_all_projects() -> list[dict]:
+    """
+    Embed all projects that have facets but no embeddings.
+    Returns list of projects that were embedded.
+    """
+    projects = db.get_projects_needing_embeddings()
+    results = []
+
+    for project in projects:
+        try:
+            embedded = embed_project_facets(project["id"])
+            results.append({
+                "id": project["id"],
+                "name": project["name"],
+                "embedded": embedded,
+            })
+        except Exception as e:
+            results.append({
+                "id": project["id"],
+                "name": project["name"],
+                "error": str(e),
+            })
+
+    return results
+
+
 def embed_text_content(
     item_id: int,
     text: str,

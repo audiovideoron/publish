@@ -857,6 +857,196 @@ def get_project_skills(project_id: int) -> list[dict]:
             ]
 
 
+# --- Project Embeddings ---
+
+def update_project_embeddings(
+    project_id: int,
+    embedding_about: list[float] | None = None,
+    embedding_uses: list[float] | None = None,
+    embedding_needs: list[float] | None = None,
+) -> bool:
+    """Update a project's facet embeddings."""
+    # Convert to numpy arrays for pgvector compatibility
+    emb_about = np.array(embedding_about) if embedding_about else None
+    emb_uses = np.array(embedding_uses) if embedding_uses else None
+    emb_needs = np.array(embedding_needs) if embedding_needs else None
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Build dynamic update to only set non-None values
+            updates = []
+            params = []
+
+            if emb_about is not None:
+                updates.append("embedding_about = %s")
+                params.append(emb_about)
+            if emb_uses is not None:
+                updates.append("embedding_uses = %s")
+                params.append(emb_uses)
+            if emb_needs is not None:
+                updates.append("embedding_needs = %s")
+                params.append(emb_needs)
+
+            if not updates:
+                return False
+
+            updates.append("updated_at = NOW()")
+            params.append(project_id)
+
+            cur.execute(
+                f"""
+                UPDATE projects
+                SET {', '.join(updates)}
+                WHERE id = %s
+                """,
+                tuple(params),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+
+def discover_for_project(
+    project_id: int,
+    facet: str = "needs",
+    limit: int = 10,
+    min_similarity: float = 0.3,
+) -> list[dict]:
+    """
+    Discover chunks that match a project's facet embedding.
+    Default: find chunks that match what the project NEEDS.
+
+    facet can be: 'about', 'uses', or 'needs'
+    """
+    facet_col = f"embedding_{facet}"
+    if facet not in ("about", "uses", "needs"):
+        raise ValueError(f"Invalid facet: {facet}")
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Get project embedding
+            cur.execute(
+                f"SELECT {facet_col} FROM projects WHERE id = %s",
+                (project_id,),
+            )
+            row = cur.fetchone()
+            if not row or row[0] is None:
+                return []
+
+            embedding = np.array(row[0])
+
+            # Find similar chunks
+            cur.execute(
+                """
+                SELECT
+                    c.id, c.content, c.chunk_index, c.timestamp_start, c.timestamp_end,
+                    i.id as item_id, i.title, i.url, i.type,
+                    1 - (c.embedding <=> %s) AS similarity
+                FROM chunks c
+                JOIN items i ON c.item_id = i.id
+                WHERE c.embedding IS NOT NULL
+                  AND 1 - (c.embedding <=> %s) > %s
+                ORDER BY c.embedding <=> %s
+                LIMIT %s
+                """,
+                (embedding, embedding, min_similarity, embedding, limit),
+            )
+
+            return [
+                {
+                    "chunk_id": row[0],
+                    "content": row[1],
+                    "chunk_index": row[2],
+                    "timestamp_start": row[3],
+                    "timestamp_end": row[4],
+                    "item_id": row[5],
+                    "item_title": row[6],
+                    "item_url": row[7],
+                    "item_type": row[8],
+                    "similarity": row[9],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def discover_projects_for_content(
+    query_embedding: list[float],
+    facet: str = "needs",
+    limit: int = 5,
+    min_similarity: float = 0.3,
+) -> list[dict]:
+    """
+    Find projects whose facet matches the given embedding.
+    Use case: when harvesting new content, find which projects could benefit.
+
+    facet can be: 'about', 'uses', or 'needs'
+    """
+    facet_col = f"embedding_{facet}"
+    if facet not in ("about", "uses", "needs"):
+        raise ValueError(f"Invalid facet: {facet}")
+
+    embedding_array = np.array(query_embedding)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT
+                    p.id, p.name, p.description, p.status,
+                    p.facet_about, p.facet_uses, p.facet_needs,
+                    1 - (p.{facet_col} <=> %s) AS similarity
+                FROM projects p
+                WHERE p.{facet_col} IS NOT NULL
+                  AND p.status = 'active'
+                  AND 1 - (p.{facet_col} <=> %s) > %s
+                ORDER BY p.{facet_col} <=> %s
+                LIMIT %s
+                """,
+                (embedding_array, embedding_array, min_similarity, embedding_array, limit),
+            )
+
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "description": row[2],
+                    "status": row[3],
+                    "facet_about": row[4] or [],
+                    "facet_uses": row[5] or [],
+                    "facet_needs": row[6] or [],
+                    "similarity": row[7],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def get_projects_needing_embeddings() -> list[dict]:
+    """Get projects that have facets but no embeddings (need to be embedded)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, name, facet_about, facet_uses, facet_needs
+                FROM projects
+                WHERE (
+                    (facet_about IS NOT NULL AND jsonb_array_length(facet_about) > 0 AND embedding_about IS NULL)
+                    OR (facet_uses IS NOT NULL AND jsonb_array_length(facet_uses) > 0 AND embedding_uses IS NULL)
+                    OR (facet_needs IS NOT NULL AND jsonb_array_length(facet_needs) > 0 AND embedding_needs IS NULL)
+                )
+                ORDER BY id
+                """
+            )
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "facet_about": row[2] or [],
+                    "facet_uses": row[3] or [],
+                    "facet_needs": row[4] or [],
+                }
+                for row in cur.fetchall()
+            ]
+
+
 # --- Stats ---
 
 def get_stats() -> dict:

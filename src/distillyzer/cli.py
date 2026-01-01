@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.markdown import Markdown
 
-from . import db, harvest as harv, transcribe, embed, query as q, visualize as viz, extract as ext, artifacts as art
+from . import db, harvest as harv, transcribe, embed as emb, query as q, visualize as viz, extract as ext, artifacts as art
 
 app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
 artifacts_app = typer.Typer(help="Manage and use extracted artifacts.")
@@ -104,7 +104,7 @@ def harvest(
                 # Convert to timed chunks and embed
                 console.print("[yellow]Embedding...[/yellow]")
                 timed_chunks = transcribe.segments_to_timed_chunks(transcript["segments"])
-                num_chunks = embed.embed_transcript_chunks(result["item_id"], timed_chunks)
+                num_chunks = emb.embed_transcript_chunks(result["item_id"], timed_chunks)
                 console.print(f"[green]Stored:[/green] {num_chunks} chunks")
 
                 # Cleanup audio file
@@ -1198,6 +1198,175 @@ def projects_delete(name: str):
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
+
+
+@projects_app.command("embed")
+def projects_embed(
+    name: str = typer.Argument(None, help="Project name (or 'all' for all projects)"),
+):
+    """Embed project facets for cross-pollination discovery.
+
+    Example:
+        dz project embed my-project
+        dz project embed all
+    """
+    try:
+        if name == "all" or name is None:
+            console.print("[yellow]Embedding all projects needing embeddings...[/yellow]\n")
+            results = emb.embed_all_projects()
+
+            if not results:
+                console.print("[dim]No projects need embedding[/dim]")
+                return
+
+            for r in results:
+                if r.get("error"):
+                    console.print(f"[red]{r['name']}:[/red] {r['error']}")
+                else:
+                    facets = [k for k, v in r["embedded"].items() if v]
+                    console.print(f"[green]{r['name']}:[/green] embedded {', '.join(facets)}")
+
+            console.print(f"\n[dim]Embedded {len(results)} projects[/dim]")
+        else:
+            project = db.get_project(name)
+            if not project:
+                console.print(f"[red]Project not found:[/red] {name}")
+                return
+
+            console.print(f"[yellow]Embedding project:[/yellow] {name}\n")
+            result = emb.embed_project_facets(project["id"])
+
+            facets = [k for k, v in result.items() if v]
+            if facets:
+                console.print(f"[green]Embedded:[/green] {', '.join(facets)}")
+            else:
+                console.print("[dim]No facets to embed[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+
+
+@projects_app.command("discover")
+def projects_discover(
+    name: str = typer.Argument(..., help="Project name"),
+    facet: str = typer.Option("needs", "--facet", "-f", help="Facet to match: about, uses, needs"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Max results"),
+    threshold: float = typer.Option(0.3, "--threshold", "-t", help="Min similarity (0-1)"),
+):
+    """Discover knowledge that matches a project's facets.
+
+    Cross-pollination: Find content that could help your project.
+    Default searches for content matching what the project NEEDS.
+
+    Example:
+        dz project discover my-project
+        dz project discover my-project --facet uses
+        dz project discover my-project --threshold 0.4
+    """
+    try:
+        project = db.get_project(name)
+        if not project:
+            console.print(f"[red]Project not found:[/red] {name}")
+            return
+
+        # Check if project has embeddings
+        facet_list = project.get(f"facet_{facet}", [])
+        if not facet_list:
+            console.print(f"[yellow]Project has no '{facet}' facets defined[/yellow]")
+            return
+
+        console.print(f"[yellow]Discovering for:[/yellow] {name}")
+        console.print(f"[dim]Matching {facet}: {', '.join(facet_list)}[/dim]\n")
+
+        # Ensure project is embedded
+        results = db.discover_for_project(
+            project["id"],
+            facet=facet,
+            limit=limit,
+            min_similarity=threshold,
+        )
+
+        if not results:
+            # Maybe project isn't embedded yet
+            console.print("[dim]No matches found. Try embedding the project first:[/dim]")
+            console.print(f"  dz project embed {name}")
+            return
+
+        # Display results
+        table = Table(show_header=True)
+        table.add_column("Sim", style="yellow", width=5)
+        table.add_column("Source", style="cyan")
+        table.add_column("Content Preview", style="dim")
+
+        for r in results:
+            sim = f"{r['similarity']:.2f}"
+            title = r["item_title"][:30] if r["item_title"] else "?"
+            if r.get("timestamp_start"):
+                ts = int(r["timestamp_start"])
+                title += f" @{ts // 60}:{ts % 60:02d}"
+            preview = r["content"][:60].replace("\n", " ")
+            if len(r["content"]) > 60:
+                preview += "..."
+
+            table.add_row(sim, title, preview)
+
+        console.print(table)
+        console.print(f"\n[dim]Found {len(results)} matches[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
+
+
+@app.command("crosspolinate")
+def crosspolinate(
+    query_text: str = typer.Argument(..., help="Text to find matching projects for"),
+    facet: str = typer.Option("needs", "--facet", "-f", help="Facet to match: about, uses, needs"),
+    limit: int = typer.Option(5, "--limit", "-l", help="Max results"),
+):
+    """Find projects that could benefit from given content/topic.
+
+    Reverse cross-pollination: Given a topic or chunk of content,
+    find which active projects might need it.
+
+    Example:
+        dz crosspolinate "Python decorators for caching"
+        dz crosspolinate "vector embeddings" --facet uses
+    """
+    try:
+        console.print(f"[yellow]Finding projects that {facet}:[/yellow] {query_text}\n")
+
+        # Get embedding for the query
+        query_embedding = emb.get_embedding(query_text)
+
+        # Find matching projects
+        projects = db.discover_projects_for_content(
+            query_embedding,
+            facet=facet,
+            limit=limit,
+        )
+
+        if not projects:
+            console.print("[dim]No matching projects found[/dim]")
+            console.print("[dim]Ensure projects are embedded:[/dim] dz project embed all")
+            return
+
+        table = Table(show_header=True)
+        table.add_column("Sim", style="yellow", width=5)
+        table.add_column("Project", style="cyan")
+        table.add_column(facet.capitalize(), style="dim")
+
+        for p in projects:
+            sim = f"{p['similarity']:.2f}"
+            facet_values = ", ".join(p.get(f"facet_{facet}", [])[:3])
+            table.add_row(sim, p["name"], facet_values)
+
+        console.print(table)
+        console.print(f"\n[dim]Found {len(projects)} projects[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
 
 
 if __name__ == "__main__":
