@@ -84,12 +84,19 @@ Guidelines:
 Question: {question}"""
 
     # Query Claude
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1500,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        raise RuntimeError(f"Failed to connect to Anthropic API: {e}") from e
+    except anthropic.RateLimitError as e:
+        raise RuntimeError(f"Anthropic API rate limit exceeded: {e}") from e
+    except anthropic.APIStatusError as e:
+        raise RuntimeError(f"Anthropic API error (status {e.status_code}): {e.message}") from e
 
     return {
         "answer": response.content[0].text,
@@ -139,12 +146,19 @@ Question: {question}"""
     messages.append({"role": "user", "content": current_message})
 
     # Query Claude
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1500,
-        system=system_prompt,
-        messages=messages,
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1500,
+            system=system_prompt,
+            messages=messages,
+        )
+    except anthropic.APIConnectionError as e:
+        raise RuntimeError(f"Failed to connect to Anthropic API: {e}") from e
+    except anthropic.RateLimitError as e:
+        raise RuntimeError(f"Anthropic API rate limit exceeded: {e}") from e
+    except anthropic.APIStatusError as e:
+        raise RuntimeError(f"Anthropic API error (status {e.status_code}): {e.message}") from e
 
     return {
         "answer": response.content[0].text,
