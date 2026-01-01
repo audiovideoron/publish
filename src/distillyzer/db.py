@@ -1,5 +1,6 @@
 """Database operations for Distillyzer."""
 
+import atexit
 import os
 from contextlib import contextmanager
 from typing import Generator
@@ -7,6 +8,7 @@ from typing import Generator
 import numpy as np
 import psycopg
 from psycopg.types.json import Jsonb
+from psycopg_pool import ConnectionPool
 from pgvector.psycopg import register_vector
 from dotenv import load_dotenv
 
@@ -14,16 +16,53 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/distillyzer")
 
+# Connection pool configuration
+# min_size: minimum connections to keep open
+# max_size: maximum connections allowed
+# max_idle: close idle connections after this many seconds
+_pool: ConnectionPool | None = None
+
+
+def _configure_connection(conn: psycopg.Connection) -> None:
+    """Configure a connection after it's created (register pgvector)."""
+    register_vector(conn)
+
+
+def _get_pool() -> ConnectionPool:
+    """Get or create the connection pool (lazy initialization)."""
+    global _pool
+    if _pool is None:
+        _pool = ConnectionPool(
+            DATABASE_URL,
+            min_size=1,
+            max_size=10,
+            max_idle=300,  # Close idle connections after 5 minutes
+            configure=_configure_connection,
+        )
+    return _pool
+
+
+def close_pool() -> None:
+    """Close the connection pool. Call this on application shutdown."""
+    global _pool
+    if _pool is not None:
+        _pool.close()
+        _pool = None
+
+
+# Register cleanup on interpreter exit
+atexit.register(close_pool)
+
 
 @contextmanager
 def get_connection() -> Generator[psycopg.Connection, None, None]:
-    """Get a database connection with pgvector support."""
-    conn = psycopg.connect(DATABASE_URL)
-    register_vector(conn)
-    try:
+    """Get a database connection from the pool with pgvector support.
+
+    The connection is automatically returned to the pool when the context exits.
+    """
+    pool = _get_pool()
+    with pool.connection() as conn:
         yield conn
-    finally:
-        conn.close()
 
 
 # --- Sources ---
