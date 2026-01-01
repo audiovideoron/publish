@@ -80,6 +80,8 @@ from .embed import (
     embed_repo_files,
     EMBEDDING_MODEL,
     EMBEDDING_DIM,
+    EMBEDDING_MODEL_DIMS,
+    get_embedding_model_info,
     MissingAPIKeyError,
 )
 
@@ -223,6 +225,8 @@ __all__ = [
     "embed_repo_files",
     "EMBEDDING_MODEL",
     "EMBEDDING_DIM",
+    "EMBEDDING_MODEL_DIMS",
+    "get_embedding_model_info",
     "MissingAPIKeyError",
     # Query
     "search",

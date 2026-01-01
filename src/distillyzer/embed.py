@@ -172,9 +172,33 @@ load_dotenv()
 # Lazy-initialized OpenAI client
 _openai_client = None
 
-EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_DIM = 1536
+# Default embedding dimensions for known OpenAI models
+EMBEDDING_MODEL_DIMS = {
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "text-embedding-ada-002": 1536,
+}
+
+# Configurable via environment variables
+EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+EMBEDDING_DIM = int(os.getenv(
+    "OPENAI_EMBEDDING_DIM",
+    str(EMBEDDING_MODEL_DIMS.get(EMBEDDING_MODEL, 1536))
+))
 MAX_TOKENS = 8000  # Leave buffer for safety
+
+
+def get_embedding_model_info() -> dict:
+    """Get current embedding model configuration.
+
+    Returns:
+        Dict with 'model', 'dim', and 'known_models' keys.
+    """
+    return {
+        "model": EMBEDDING_MODEL,
+        "dim": EMBEDDING_DIM,
+        "known_models": EMBEDDING_MODEL_DIMS,
+    }
 
 
 class MissingAPIKeyError(Exception):
