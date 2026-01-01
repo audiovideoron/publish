@@ -800,6 +800,75 @@ def get_project_items(project_id: int) -> list[dict]:
             ]
 
 
+def get_item_projects(item_id: int) -> list[dict]:
+    """Get all projects that an item is linked to."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.name, p.description, p.status, p.facet_about,
+                       p.facet_uses, p.facet_needs, p.beads_epic_id, p.metadata,
+                       p.created_at, p.updated_at
+                FROM projects p
+                JOIN project_items pi ON p.id = pi.project_id
+                WHERE pi.item_id = %s
+                ORDER BY p.name
+                """,
+                (item_id,),
+            )
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "description": row[2],
+                    "status": row[3],
+                    "facet_about": row[4] or [],
+                    "facet_uses": row[5] or [],
+                    "facet_needs": row[6] or [],
+                    "beads_epic_id": row[7],
+                    "metadata": row[8],
+                    "created_at": row[9],
+                    "updated_at": row[10],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def is_item_linked_to_project(project_id: int, item_id: int) -> bool:
+    """Check if an item is linked to a project."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM project_items WHERE project_id = %s AND item_id = %s",
+                (project_id, item_id),
+            )
+            return cur.fetchone() is not None
+
+
+def list_all_project_items() -> list[dict]:
+    """List all project-item associations."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pi.project_id, pi.item_id, p.name as project_name, i.title as item_title
+                FROM project_items pi
+                JOIN projects p ON pi.project_id = p.id
+                JOIN items i ON pi.item_id = i.id
+                ORDER BY p.name, i.title
+                """
+            )
+            return [
+                {
+                    "project_id": row[0],
+                    "item_id": row[1],
+                    "project_name": row[2],
+                    "item_title": row[3],
+                }
+                for row in cur.fetchall()
+            ]
+
+
 def link_project_skill(project_id: int, skill_id: int) -> bool:
     """Link a skill to a project."""
     with get_connection() as conn:
