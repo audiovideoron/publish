@@ -1,14 +1,39 @@
 """Query the knowledge base using semantic search and Claude."""
 
+import logging
 import os
 
 import anthropic
 from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 from . import db
 from .embed import get_embedding
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration for Anthropic API calls
+ANTHROPIC_RETRY_EXCEPTIONS = (
+    anthropic.APIConnectionError,
+    anthropic.RateLimitError,
+    anthropic.APITimeoutError,
+    anthropic.InternalServerError,
+)
+anthropic_retry = retry(
+    retry=retry_if_exception_type(ANTHROPIC_RETRY_EXCEPTIONS),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=1, max=60),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
 
 claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -54,10 +79,14 @@ def format_context(chunks: list[dict]) -> str:
     return "\n\n".join(context_parts)
 
 
+@anthropic_retry
 def ask(question: str, num_sources: int = 5) -> dict:
     """
     Ask a question using RAG: search for context, then query Claude.
     Returns dict with answer and sources.
+
+    Includes automatic retry with exponential backoff for transient errors
+    (connection errors, rate limits, timeouts, server errors).
     """
     # Search for relevant chunks
     chunks = search(question, limit=num_sources)
@@ -91,10 +120,9 @@ Question: {question}"""
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
         )
-    except anthropic.APIConnectionError as e:
-        raise RuntimeError(f"Failed to connect to Anthropic API: {e}") from e
-    except anthropic.RateLimitError as e:
-        raise RuntimeError(f"Anthropic API rate limit exceeded: {e}") from e
+    except ANTHROPIC_RETRY_EXCEPTIONS:
+        # Let tenacity handle these via the decorator
+        raise
     except anthropic.APIStatusError as e:
         raise RuntimeError(f"Anthropic API error (status {e.status_code}): {e.message}") from e
 
@@ -105,6 +133,7 @@ Question: {question}"""
     }
 
 
+@anthropic_retry
 def chat_turn(
     question: str,
     history: list[dict],
@@ -113,6 +142,9 @@ def chat_turn(
     """
     Single turn in a chat conversation with memory.
     history is a list of {"role": "user"|"assistant", "content": str}
+
+    Includes automatic retry with exponential backoff for transient errors
+    (connection errors, rate limits, timeouts, server errors).
     """
     # Search for relevant chunks
     chunks = search(question, limit=num_sources)
@@ -153,10 +185,9 @@ Question: {question}"""
             system=system_prompt,
             messages=messages,
         )
-    except anthropic.APIConnectionError as e:
-        raise RuntimeError(f"Failed to connect to Anthropic API: {e}") from e
-    except anthropic.RateLimitError as e:
-        raise RuntimeError(f"Anthropic API rate limit exceeded: {e}") from e
+    except ANTHROPIC_RETRY_EXCEPTIONS:
+        # Let tenacity handle these via the decorator
+        raise
     except anthropic.APIStatusError as e:
         raise RuntimeError(f"Anthropic API error (status {e.status_code}): {e.message}") from e
 

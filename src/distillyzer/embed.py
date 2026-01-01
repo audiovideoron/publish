@@ -1,12 +1,32 @@
 """Chunking and embedding using OpenAI API."""
 
+import logging
 import os
 
 import tiktoken
-from openai import OpenAI, OpenAIError
+from openai import OpenAI, OpenAIError, APIConnectionError, RateLimitError, APITimeoutError
 from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 from . import db
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration for OpenAI API calls
+OPENAI_RETRY_EXCEPTIONS = (APIConnectionError, RateLimitError, APITimeoutError)
+openai_retry = retry(
+    retry=retry_if_exception_type(OPENAI_RETRY_EXCEPTIONS),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=1, max=60),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
 
 load_dotenv()
 
@@ -137,20 +157,33 @@ def chunk_code(text: str, max_tokens: int = 500) -> list[str]:
     return chunks
 
 
+@openai_retry
 def get_embedding(text: str) -> list[float]:
-    """Get embedding for a single text using OpenAI API."""
+    """Get embedding for a single text using OpenAI API.
+
+    Includes automatic retry with exponential backoff for transient errors
+    (connection errors, rate limits, timeouts).
+    """
     try:
         response = client.embeddings.create(
             model=EMBEDDING_MODEL,
             input=text,
         )
         return response.data[0].embedding
+    except OPENAI_RETRY_EXCEPTIONS:
+        # Let tenacity handle these via the decorator
+        raise
     except OpenAIError as e:
         raise RuntimeError(f"OpenAI embedding API error: {e}") from e
 
 
+@openai_retry
 def get_embeddings_batch(texts: list[str]) -> list[list[float]]:
-    """Get embeddings for multiple texts in a single API call."""
+    """Get embeddings for multiple texts in a single API call.
+
+    Includes automatic retry with exponential backoff for transient errors
+    (connection errors, rate limits, timeouts).
+    """
     if not texts:
         return []
 
@@ -160,6 +193,9 @@ def get_embeddings_batch(texts: list[str]) -> list[list[float]]:
             input=texts,
         )
         return [item.embedding for item in response.data]
+    except OPENAI_RETRY_EXCEPTIONS:
+        # Let tenacity handle these via the decorator
+        raise
     except OpenAIError as e:
         raise RuntimeError(f"OpenAI batch embedding API error: {e}") from e
 

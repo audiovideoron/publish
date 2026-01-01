@@ -1,19 +1,59 @@
 """Manage and use extracted implementation artifacts."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Optional
 
 import anthropic
 from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 from . import db
 from .embed import get_embedding
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+# Retry configuration for Anthropic API calls
+ANTHROPIC_RETRY_EXCEPTIONS = (
+    anthropic.APIConnectionError,
+    anthropic.RateLimitError,
+    anthropic.APITimeoutError,
+    anthropic.InternalServerError,
+)
+anthropic_retry = retry(
+    retry=retry_if_exception_type(ANTHROPIC_RETRY_EXCEPTIONS),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=1, max=60),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+
 claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+
+@anthropic_retry
+def _call_claude(system_prompt: str, user_message: str, max_tokens: int = 2000):
+    """Make a Claude API call with automatic retry for transient errors.
+
+    Includes automatic retry with exponential backoff for transient errors
+    (connection errors, rate limits, timeouts, server errors).
+    """
+    return claude.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
 
 # Default artifacts directory
 ARTIFACTS_DIR = Path("artifacts")
@@ -110,22 +150,14 @@ My situation:
 
 How should I implement this? Give me specific, actionable steps."""
 
+    # Query Claude with automatic retry for transient errors
     try:
-        response = claude.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-    except anthropic.APIConnectionError as e:
+        response = _call_claude(system_prompt, user_message, max_tokens=2000)
+    except ANTHROPIC_RETRY_EXCEPTIONS as e:
+        # Retries exhausted for transient errors
         return {
             "status": "error",
-            "message": f"Failed to connect to Anthropic API: {e}",
-        }
-    except anthropic.RateLimitError as e:
-        return {
-            "status": "error",
-            "message": f"Rate limit exceeded: {e}",
+            "message": f"API error after retries: {e}",
         }
     except anthropic.APIStatusError as e:
         return {
@@ -219,22 +251,14 @@ Context: {artifact_context}
 Generate a minimal working project that I can run to see this technique in action.
 The project should be self-contained and educational - I want to learn by seeing it work."""
 
+    # Query Claude with automatic retry for transient errors
     try:
-        response = claude.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-    except anthropic.APIConnectionError as e:
+        response = _call_claude(system_prompt, user_message, max_tokens=4000)
+    except ANTHROPIC_RETRY_EXCEPTIONS as e:
+        # Retries exhausted for transient errors
         return {
             "status": "error",
-            "message": f"Failed to connect to Anthropic API: {e}",
-        }
-    except anthropic.RateLimitError as e:
-        return {
-            "status": "error",
-            "message": f"Rate limit exceeded: {e}",
+            "message": f"API error after retries: {e}",
         }
     except anthropic.APIStatusError as e:
         return {
@@ -367,22 +391,14 @@ Content from knowledge base:
 
 Analyze this content and propose a minimal hello world demo."""
 
+    # Query Claude with automatic retry for transient errors
     try:
-        response = claude.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-    except anthropic.APIConnectionError as e:
+        response = _call_claude(system_prompt, user_message, max_tokens=1000)
+    except ANTHROPIC_RETRY_EXCEPTIONS as e:
+        # Retries exhausted for transient errors
         return {
             "status": "error",
-            "message": f"Failed to connect to Anthropic API: {e}",
-        }
-    except anthropic.RateLimitError as e:
-        return {
-            "status": "error",
-            "message": f"Rate limit exceeded: {e}",
+            "message": f"API error after retries: {e}",
         }
     except anthropic.APIStatusError as e:
         return {
@@ -502,22 +518,14 @@ Reference content from the lesson:
 
 Build the simplest possible demo that proves understanding of this concept."""
 
+    # Query Claude with automatic retry for transient errors
     try:
-        response = claude.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4000,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-    except anthropic.APIConnectionError as e:
+        response = _call_claude(system_prompt, user_message, max_tokens=4000)
+    except ANTHROPIC_RETRY_EXCEPTIONS as e:
+        # Retries exhausted for transient errors
         return {
             "status": "error",
-            "message": f"Failed to connect to Anthropic API: {e}",
-        }
-    except anthropic.RateLimitError as e:
-        return {
-            "status": "error",
-            "message": f"Rate limit exceeded: {e}",
+            "message": f"API error after retries: {e}",
         }
     except anthropic.APIStatusError as e:
         return {

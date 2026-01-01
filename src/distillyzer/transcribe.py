@@ -1,20 +1,44 @@
 """Transcription using OpenAI Whisper API."""
 
+import logging
 import os
 from pathlib import Path
 
-from openai import OpenAI, APIError, APIConnectionError, RateLimitError, AuthenticationError
+from openai import OpenAI, APIError, APIConnectionError, RateLimitError, AuthenticationError, APITimeoutError
 from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration for OpenAI API calls
+OPENAI_RETRY_EXCEPTIONS = (APIConnectionError, RateLimitError, APITimeoutError)
+openai_retry = retry(
+    retry=retry_if_exception_type(OPENAI_RETRY_EXCEPTIONS),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=1, max=60),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
+@openai_retry
 def transcribe_audio(audio_path: str | Path, language: str | None = None) -> dict:
     """
     Transcribe audio file using OpenAI Whisper API.
     Returns dict with text and segments (with timestamps).
+
+    Includes automatic retry with exponential backoff for transient errors
+    (connection errors, rate limits, timeouts).
     """
     audio_path = Path(audio_path)
     if not audio_path.exists():
@@ -30,12 +54,11 @@ def transcribe_audio(audio_path: str | Path, language: str | None = None) -> dic
                 language=language,
                 timestamp_granularities=["segment"],
             )
+        except OPENAI_RETRY_EXCEPTIONS:
+            # Let tenacity handle these via the decorator
+            raise
         except AuthenticationError as e:
             raise RuntimeError(f"OpenAI authentication failed. Check your API key: {e}") from e
-        except RateLimitError as e:
-            raise RuntimeError(f"OpenAI rate limit exceeded. Please try again later: {e}") from e
-        except APIConnectionError as e:
-            raise RuntimeError(f"Failed to connect to OpenAI API: {e}") from e
         except APIError as e:
             raise RuntimeError(f"OpenAI API error during transcription: {e}") from e
 
