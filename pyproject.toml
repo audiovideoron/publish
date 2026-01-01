@@ -19,6 +19,7 @@ dependencies = [
     "pillow>=10.0.0",
     "alembic>=1.17.2",
     "sqlalchemy>=2.0.45",
+    "trafilatura>=2.0.0",
 ]
 
 [project.optional-dependencies]

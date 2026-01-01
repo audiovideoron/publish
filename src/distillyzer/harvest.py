@@ -5,8 +5,10 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 from git import Repo
+import trafilatura
 
 from . import db
 
@@ -271,3 +273,86 @@ def harvest_repo(url: str, clone_dir: Path | None = None) -> dict:
         "repo_path": str(repo_path),
         "status": "cloned",
     }
+
+
+# --- Articles ---
+
+def harvest_article(url: str) -> dict:
+    """
+    Harvest an article from a URL.
+    Extracts main content, creates item in DB.
+    Returns dict with item_id and content for embedding.
+    """
+    # Check if already harvested
+    existing = db.get_item_by_url(url)
+    if existing:
+        return {"item_id": existing["id"], "status": "already_exists", "title": existing["title"]}
+
+    # Fetch and extract article content
+    # Use custom headers to avoid blocks from sites like Medium
+    import requests
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        downloaded = response.text
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch URL: {url} - {e}")
+
+    # Extract main content as plain text
+    content = trafilatura.extract(
+        downloaded,
+        include_comments=False,
+        include_tables=True,
+    )
+
+    if not content or len(content) < 100:
+        raise RuntimeError(f"Could not extract meaningful content from: {url}")
+
+    # Extract metadata
+    metadata = trafilatura.extract_metadata(downloaded)
+    title = metadata.title if metadata and metadata.title else _title_from_url(url)
+    author = metadata.author if metadata and metadata.author else None
+    sitename = (metadata.sitename if metadata and metadata.sitename else None) or urlparse(url).netloc
+
+    # Get or create source for the site
+    source_id = db.get_or_create_source(
+        type="website",
+        name=sitename,
+        url=f"https://{urlparse(url).netloc}",
+    )
+
+    # Create item in DB
+    item_id = db.create_item(
+        source_id=source_id,
+        type="article",
+        title=title,
+        url=url,
+        metadata={
+            "author": author,
+            "sitename": sitename,
+            "content_length": len(content),
+        },
+    )
+
+    return {
+        "item_id": item_id,
+        "title": title,
+        "author": author,
+        "sitename": sitename,
+        "content": content,
+        "status": "harvested",
+    }
+
+
+def _title_from_url(url: str) -> str:
+    """Generate a title from URL path."""
+    path = urlparse(url).path
+    # Get last path segment, clean it up
+    segments = [s for s in path.split("/") if s]
+    if segments:
+        title = segments[-1].replace("-", " ").replace("_", " ")
+        return title[:100]
+    return "Untitled Article"

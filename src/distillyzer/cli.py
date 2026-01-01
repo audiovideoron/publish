@@ -136,7 +136,33 @@ def harvest(
                 _regenerate_index()
                 console.print("[green]Index updated[/green]")
         else:
-            console.print("[red]Unknown URL type.[/red] Supported: YouTube, GitHub")
+            # Assume it's an article URL
+            console.print("[cyan]Detected article URL[/cyan]")
+            result = harv.harvest_article(url)
+
+            if result["status"] == "already_exists":
+                console.print(f"[yellow]Already harvested:[/yellow] {result['title']}")
+                return
+
+            console.print(f"[green]Harvested:[/green] {result['title']}")
+            if result.get("author"):
+                console.print(f"[dim]Author:[/dim] {result['author']}")
+            console.print(f"[dim]Site:[/dim] {result.get('sitename', 'Unknown')}")
+
+            # Embed the article content
+            console.print("\n[yellow]Embedding...[/yellow]")
+            num_chunks = emb.embed_text_content(
+                result["item_id"],
+                result["content"],
+                is_code=False,
+            )
+            console.print(f"[green]Stored:[/green] {num_chunks} chunks")
+
+            # Auto-regenerate index
+            console.print("[yellow]Updating index...[/yellow]")
+            _regenerate_index()
+            console.print("[green]Index updated[/green]")
+
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise
