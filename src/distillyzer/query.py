@@ -20,6 +20,14 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# Default Anthropic model - can be overridden via ANTHROPIC_MODEL environment variable
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+
+
+def get_anthropic_model() -> str:
+    """Get the Anthropic model to use, from environment or default."""
+    return os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
+
 # Retry configuration for Anthropic API calls
 ANTHROPIC_RETRY_EXCEPTIONS = (
     anthropic.APIConnectionError,
@@ -141,7 +149,7 @@ Question: {question}"""
     try:
         client = get_anthropic_client()
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=get_anthropic_model(),
             max_tokens=1500,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
@@ -207,7 +215,7 @@ Question: {question}"""
     try:
         client = get_anthropic_client()
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=get_anthropic_model(),
             max_tokens=1500,
             system=system_prompt,
             messages=messages,
