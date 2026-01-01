@@ -182,12 +182,34 @@ Return as JSON with structure:
 }}"""
 
     # Query Claude
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        return {
+            "artifacts": [],
+            "sources": [],
+            "status": "api_error",
+            "message": f"Failed to connect to Anthropic API: {e}",
+        }
+    except anthropic.RateLimitError as e:
+        return {
+            "artifacts": [],
+            "sources": [],
+            "status": "rate_limit",
+            "message": f"Rate limit exceeded: {e}",
+        }
+    except anthropic.APIStatusError as e:
+        return {
+            "artifacts": [],
+            "sources": [],
+            "status": "api_error",
+            "message": f"Anthropic API error ({e.status_code}): {e.message}",
+        }
 
     response_text = response.content[0].text
 
@@ -297,12 +319,37 @@ Return as JSON with structure:
     "notes": "any overall observations about the content"
 }}"""
 
-    response = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = claude.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIConnectionError as e:
+        return {
+            "item_id": item_id,
+            "item_title": item["title"],
+            "artifacts": [],
+            "status": "api_error",
+            "message": f"Failed to connect to Anthropic API: {e}",
+        }
+    except anthropic.RateLimitError as e:
+        return {
+            "item_id": item_id,
+            "item_title": item["title"],
+            "artifacts": [],
+            "status": "rate_limit",
+            "message": f"Rate limit exceeded: {e}",
+        }
+    except anthropic.APIStatusError as e:
+        return {
+            "item_id": item_id,
+            "item_title": item["title"],
+            "artifacts": [],
+            "status": "api_error",
+            "message": f"Anthropic API error ({e.status_code}): {e.message}",
+        }
 
     response_text = response.content[0].text
 
