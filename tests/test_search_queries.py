@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from distillyzer import search_queries
+from publishing import search_queries
 
 
 class TestSlugify:
@@ -443,7 +443,7 @@ class TestDatabaseIntegration:
 
     def test_generate_for_project_id_not_found(self):
         """Test error when project ID not found."""
-        with patch("distillyzer.db.get_project_by_id") as mock_get:
+        with patch("publishing.db.get_project_by_id") as mock_get:
             mock_get.return_value = None
 
             with pytest.raises(ValueError, match="not found"):
@@ -451,7 +451,7 @@ class TestDatabaseIntegration:
 
     def test_generate_for_project_id_success(self, sample_project):
         """Test generating queries for project by ID."""
-        with patch("distillyzer.db.get_project_by_id") as mock_get:
+        with patch("publishing.db.get_project_by_id") as mock_get:
             mock_get.return_value = sample_project
 
             query_set = search_queries.generate_for_project_id(1)
@@ -462,7 +462,7 @@ class TestDatabaseIntegration:
 
     def test_generate_for_project_name_not_found(self):
         """Test error when project name not found."""
-        with patch("distillyzer.db.get_project") as mock_get:
+        with patch("publishing.db.get_project") as mock_get:
             mock_get.return_value = None
 
             with pytest.raises(ValueError, match="not found"):
@@ -470,7 +470,7 @@ class TestDatabaseIntegration:
 
     def test_generate_for_project_name_success(self, sample_project):
         """Test generating queries for project by name."""
-        with patch("distillyzer.db.get_project") as mock_get:
+        with patch("publishing.db.get_project") as mock_get:
             mock_get.return_value = sample_project
 
             query_set = search_queries.generate_for_project_name("test-project")

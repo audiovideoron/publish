@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
-from distillyzer import transcribe
+from publishing import transcribe
 
 
 class TestTranscribeAudio:
@@ -33,7 +33,7 @@ class TestTranscribeAudio:
         mock_response.language = "en"
         mock_response.duration = 10.0
 
-        with patch("distillyzer.transcribe.get_openai_client") as mock_get_client:
+        with patch("publishing.transcribe.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.audio.transcriptions.create.return_value = mock_response
@@ -56,7 +56,7 @@ class TestTranscribeAudio:
         mock_response.language = "fr"
         mock_response.duration = 5.0
 
-        with patch("distillyzer.transcribe.get_openai_client") as mock_get_client:
+        with patch("publishing.transcribe.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.audio.transcriptions.create.return_value = mock_response
@@ -74,7 +74,7 @@ class TestTranscribeAudio:
         audio_file = tmp_path / "test.mp3"
         audio_file.write_bytes(b"\x00" * 100)
 
-        with patch("distillyzer.transcribe.get_openai_client") as mock_get_client:
+        with patch("publishing.transcribe.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.audio.transcriptions.create.side_effect = AuthenticationError(
@@ -95,7 +95,7 @@ class TestTranscribeAudio:
         audio_file = tmp_path / "test.mp3"
         audio_file.write_bytes(b"\x00" * 100)
 
-        with patch("distillyzer.transcribe.get_openai_client") as mock_get_client:
+        with patch("publishing.transcribe.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.audio.transcriptions.create.side_effect = RateLimitError(
@@ -114,7 +114,7 @@ class TestTranscribeAudio:
         audio_file = tmp_path / "test.mp3"
         audio_file.write_bytes(b"\x00" * 100)
 
-        with patch("distillyzer.transcribe.get_openai_client") as mock_get_client:
+        with patch("publishing.transcribe.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.audio.transcriptions.create.side_effect = APIConnectionError(
@@ -135,7 +135,7 @@ class TestTranscribeAudio:
         mock_response.language = "en"
         mock_response.duration = 10.0
 
-        with patch("distillyzer.transcribe.get_openai_client") as mock_get_client:
+        with patch("publishing.transcribe.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.audio.transcriptions.create.return_value = mock_response

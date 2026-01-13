@@ -4,7 +4,7 @@ import time
 import pytest
 from unittest.mock import MagicMock, patch
 
-from distillyzer import embed
+from publishing import embed
 
 
 class TestRateLimiter:
@@ -245,7 +245,7 @@ class TestGetEmbedding:
         """Test successful embedding generation."""
         mock_embedding = [0.1] * 1536
 
-        with patch("distillyzer.embed.get_openai_client") as mock_get_client:
+        with patch("publishing.embed.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_response = MagicMock()
@@ -261,7 +261,7 @@ class TestGetEmbedding:
         """Test embedding generation with API error."""
         from openai import OpenAIError
 
-        with patch("distillyzer.embed.get_openai_client") as mock_get_client:
+        with patch("publishing.embed.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.embeddings.create.side_effect = OpenAIError("API Error")
@@ -285,7 +285,7 @@ class TestGetEmbeddingsBatch:
         texts = ["Text 1", "Text 2", "Text 3"]
         mock_embeddings = [[0.1] * 1536, [0.2] * 1536, [0.3] * 1536]
 
-        with patch("distillyzer.embed.get_openai_client") as mock_get_client:
+        with patch("publishing.embed.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_response = MagicMock()
@@ -301,7 +301,7 @@ class TestGetEmbeddingsBatch:
         """Test batch embedding with API error."""
         from openai import OpenAIError
 
-        with patch("distillyzer.embed.get_openai_client") as mock_get_client:
+        with patch("publishing.embed.get_openai_client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
             mock_client.embeddings.create.side_effect = OpenAIError("Batch API Error")
@@ -328,8 +328,8 @@ class TestEmbedTranscriptChunks:
         ]
         mock_embeddings = [[0.1] * 1536, [0.2] * 1536]
 
-        with patch("distillyzer.embed.get_embeddings_batch") as mock_batch, \
-             patch("distillyzer.embed.db") as mock_db:
+        with patch("publishing.embed.get_embeddings_batch") as mock_batch, \
+             patch("publishing.embed.db") as mock_db:
             mock_batch.return_value = mock_embeddings
             mock_db.create_chunks_batch.return_value = [1, 2]
 
@@ -344,7 +344,7 @@ class TestEmbedTextContent:
 
     def test_embed_text_content_empty(self):
         """Test embedding empty text."""
-        with patch("distillyzer.embed.chunk_text") as mock_chunk:
+        with patch("publishing.embed.chunk_text") as mock_chunk:
             mock_chunk.return_value = []
 
             result = embed.embed_text_content(item_id=1, text="")
@@ -353,9 +353,9 @@ class TestEmbedTextContent:
 
     def test_embed_text_content_text(self):
         """Test embedding regular text content."""
-        with patch("distillyzer.embed.chunk_text") as mock_chunk_text, \
-             patch("distillyzer.embed.get_embeddings_batch") as mock_batch, \
-             patch("distillyzer.embed.db") as mock_db:
+        with patch("publishing.embed.chunk_text") as mock_chunk_text, \
+             patch("publishing.embed.get_embeddings_batch") as mock_batch, \
+             patch("publishing.embed.db") as mock_db:
             mock_chunk_text.return_value = ["Chunk 1", "Chunk 2"]
             mock_batch.return_value = [[0.1] * 1536, [0.2] * 1536]
             mock_db.create_chunks_batch.return_value = [1, 2]
@@ -367,9 +367,9 @@ class TestEmbedTextContent:
 
     def test_embed_text_content_code(self):
         """Test embedding code content."""
-        with patch("distillyzer.embed.chunk_code") as mock_chunk_code, \
-             patch("distillyzer.embed.get_embeddings_batch") as mock_batch, \
-             patch("distillyzer.embed.db") as mock_db:
+        with patch("publishing.embed.chunk_code") as mock_chunk_code, \
+             patch("publishing.embed.get_embeddings_batch") as mock_batch, \
+             patch("publishing.embed.db") as mock_db:
             mock_chunk_code.return_value = ["def foo(): pass"]
             mock_batch.return_value = [[0.1] * 1536]
             mock_db.create_chunks_batch.return_value = [1]
@@ -385,7 +385,7 @@ class TestEmbedProjectFacets:
 
     def test_embed_project_facets_not_found(self):
         """Test embedding facets for non-existent project."""
-        with patch("distillyzer.embed.db") as mock_db:
+        with patch("publishing.embed.db") as mock_db:
             mock_db.get_project_by_id.return_value = None
 
             with pytest.raises(ValueError) as exc_info:
@@ -403,8 +403,8 @@ class TestEmbedProjectFacets:
             "facet_needs": ["GPU"],
         }
 
-        with patch("distillyzer.embed.db") as mock_db, \
-             patch("distillyzer.embed.get_embedding") as mock_embed:
+        with patch("publishing.embed.db") as mock_db, \
+             patch("publishing.embed.get_embedding") as mock_embed:
             mock_db.get_project_by_id.return_value = project
             mock_embed.return_value = [0.1] * 1536
             mock_db.update_project_embeddings.return_value = True
@@ -426,8 +426,8 @@ class TestEmbedProjectFacets:
             "facet_needs": None,  # None
         }
 
-        with patch("distillyzer.embed.db") as mock_db, \
-             patch("distillyzer.embed.get_embedding") as mock_embed:
+        with patch("publishing.embed.db") as mock_db, \
+             patch("publishing.embed.get_embedding") as mock_embed:
             mock_db.get_project_by_id.return_value = project
             mock_embed.return_value = [0.1] * 1536
             mock_db.update_project_embeddings.return_value = True
@@ -457,7 +457,7 @@ class TestEmbedRepoFiles:
             {"item_id": 2, "path": "README.md", "content": "# Readme", "extension": ".md"},
         ]
 
-        with patch("distillyzer.embed.embed_text_content") as mock_embed:
+        with patch("publishing.embed.embed_text_content") as mock_embed:
             mock_embed.return_value = 2  # 2 chunks per file
 
             result = embed.embed_repo_files(file_items=file_items)
@@ -473,7 +473,7 @@ class TestEmbedRepoFiles:
             {"item_id": 2, "path": "bad.py", "content": "error", "extension": ".py"},
         ]
 
-        with patch("distillyzer.embed.embed_text_content") as mock_embed:
+        with patch("publishing.embed.embed_text_content") as mock_embed:
             mock_embed.side_effect = [2, Exception("Embedding failed")]
 
             result = embed.embed_repo_files(file_items=file_items)
@@ -494,7 +494,7 @@ class TestEmbedRepoFiles:
         def callback(current, total, path, chunks):
             callback_calls.append((current, total, path, chunks))
 
-        with patch("distillyzer.embed.embed_text_content") as mock_embed:
+        with patch("publishing.embed.embed_text_content") as mock_embed:
             mock_embed.return_value = 1
 
             embed.embed_repo_files(file_items=file_items, progress_callback=callback)

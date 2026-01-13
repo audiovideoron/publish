@@ -14,7 +14,7 @@ load_dotenv()
 config = context.config
 
 # Database URL from environment - use psycopg (v3) dialect
-_db_url = os.getenv("DATABASE_URL", "postgresql://localhost/distillyzer")
+_db_url = os.getenv("DATABASE_URL", "postgresql://localhost/publishing")
 # Ensure we use the psycopg3 dialect
 if _db_url.startswith("postgresql://"):
     DATABASE_URL = _db_url.replace("postgresql://", "postgresql+psycopg://", 1)

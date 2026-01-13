@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
 
-from distillyzer.cli import app
+from publishing.cli import app
 
 
 runner = CliRunner()
@@ -15,23 +15,23 @@ class TestFormatViews:
 
     def test_format_views_none(self):
         """Test formatting None view count."""
-        from distillyzer.cli import _format_views
+        from publishing.cli import _format_views
         assert _format_views(None) == "?"
 
     def test_format_views_small(self):
         """Test formatting small view count."""
-        from distillyzer.cli import _format_views
+        from publishing.cli import _format_views
         assert _format_views(500) == "500"
 
     def test_format_views_thousands(self):
         """Test formatting thousands."""
-        from distillyzer.cli import _format_views
+        from publishing.cli import _format_views
         assert _format_views(1500) == "1.5K"
         assert _format_views(10000) == "10.0K"
 
     def test_format_views_millions(self):
         """Test formatting millions."""
-        from distillyzer.cli import _format_views
+        from publishing.cli import _format_views
         assert _format_views(1_500_000) == "1.5M"
         assert _format_views(10_000_000) == "10.0M"
 
@@ -41,7 +41,7 @@ class TestDisplayProjectFacets:
 
     def test_display_with_all_facets(self, capsys):
         """Test display with all facets present."""
-        from distillyzer.cli import _display_project_facets, console
+        from publishing.cli import _display_project_facets, console
 
         project = {
             "facet_needs": ["API auth", "testing"],
@@ -60,7 +60,7 @@ class TestDisplayProjectFacets:
 
     def test_display_with_no_facets(self):
         """Test display warning when no facets defined."""
-        from distillyzer.cli import _display_project_facets, console
+        from publishing.cli import _display_project_facets, console
 
         project = {
             "facet_needs": [],
@@ -90,7 +90,7 @@ class TestSuggestYoutubeHelper:
 
     def test_suggest_youtube_no_facets(self):
         """Test with project having no facets."""
-        from distillyzer.cli import _suggest_youtube
+        from publishing.cli import _suggest_youtube
 
         project = {"name": "empty", "facet_needs": [], "facet_uses": [], "facet_about": []}
         result = _suggest_youtube(project)
@@ -98,7 +98,7 @@ class TestSuggestYoutubeHelper:
 
     def test_suggest_youtube_with_facets(self, sample_project):
         """Test with project having facets."""
-        from distillyzer.cli import _suggest_youtube
+        from publishing.cli import _suggest_youtube
 
         mock_video = {
             "id": "abc123",
@@ -115,8 +115,8 @@ class TestSuggestYoutubeHelper:
             "description": "Learn FastAPI step by step",
         }
 
-        with patch("distillyzer.cli.harv.search_youtube") as mock_search, \
-             patch("distillyzer.cli.harv.get_video_info") as mock_get_info:
+        with patch("publishing.cli.harv.search_youtube") as mock_search, \
+             patch("publishing.cli.harv.get_video_info") as mock_get_info:
             mock_search.return_value = [mock_video]
             mock_get_info.return_value = mock_info
 
@@ -131,7 +131,7 @@ class TestSuggestYoutubeHelper:
 
     def test_suggest_youtube_filters_by_score(self, sample_project):
         """Test that videos are filtered by min_score."""
-        from distillyzer.cli import _suggest_youtube
+        from publishing.cli import _suggest_youtube
 
         mock_video = {
             "id": "abc123",
@@ -148,8 +148,8 @@ class TestSuggestYoutubeHelper:
             "description": "",
         }
 
-        with patch("distillyzer.cli.harv.search_youtube") as mock_search, \
-             patch("distillyzer.cli.harv.get_video_info") as mock_get_info:
+        with patch("publishing.cli.harv.search_youtube") as mock_search, \
+             patch("publishing.cli.harv.get_video_info") as mock_get_info:
             mock_search.return_value = [mock_video]
             mock_get_info.return_value = mock_info
 
@@ -161,7 +161,7 @@ class TestSuggestYoutubeHelper:
 
     def test_suggest_youtube_deduplicates(self, sample_project):
         """Test that duplicate videos are deduplicated."""
-        from distillyzer.cli import _suggest_youtube
+        from publishing.cli import _suggest_youtube
 
         mock_video = {
             "id": "abc123",
@@ -178,8 +178,8 @@ class TestSuggestYoutubeHelper:
             "description": "Tutorial content",
         }
 
-        with patch("distillyzer.cli.harv.search_youtube") as mock_search, \
-             patch("distillyzer.cli.harv.get_video_info") as mock_get_info:
+        with patch("publishing.cli.harv.search_youtube") as mock_search, \
+             patch("publishing.cli.harv.get_video_info") as mock_get_info:
             # Return same video for multiple queries
             mock_search.return_value = [mock_video]
             mock_get_info.return_value = mock_info
@@ -206,18 +206,18 @@ class TestSuggestGithubHelper:
 
     def test_suggest_github_no_facets(self):
         """Test with project having no facets."""
-        from distillyzer.cli import _suggest_github
+        from publishing.cli import _suggest_github
 
         project = {"name": "empty", "facet_needs": [], "facet_uses": [], "facet_about": []}
 
-        with patch("distillyzer.cli.console.print"):
+        with patch("publishing.cli.console.print"):
             result = _suggest_github(project)
             # Currently returns empty since GitHub search is not implemented
             assert result == []
 
     def test_suggest_github_shows_queries(self, sample_project):
         """Test that GitHub queries are shown (placeholder behavior)."""
-        from distillyzer.cli import _suggest_github, console
+        from publishing.cli import _suggest_github, console
 
         with patch.object(console, 'print') as mock_print:
             result = _suggest_github(sample_project)
@@ -245,7 +245,7 @@ class TestSuggestYoutubeCommand:
 
     def test_project_not_found(self):
         """Test error when project not found."""
-        with patch("distillyzer.cli.db.get_project") as mock_get:
+        with patch("publishing.cli.db.get_project") as mock_get:
             mock_get.return_value = None
 
             result = runner.invoke(app, ["suggest", "youtube", "nonexistent"])
@@ -270,9 +270,9 @@ class TestSuggestYoutubeCommand:
             "description": "Complete machine learning tutorial",
         }
 
-        with patch("distillyzer.cli.db.get_project") as mock_get_project, \
-             patch("distillyzer.cli.harv.search_youtube") as mock_search, \
-             patch("distillyzer.cli.harv.get_video_info") as mock_get_info:
+        with patch("publishing.cli.db.get_project") as mock_get_project, \
+             patch("publishing.cli.harv.search_youtube") as mock_search, \
+             patch("publishing.cli.harv.get_video_info") as mock_get_info:
             mock_get_project.return_value = sample_project
             mock_search.return_value = [mock_video]
             mock_get_info.return_value = mock_info
@@ -287,8 +287,8 @@ class TestSuggestYoutubeCommand:
 
     def test_no_results_message(self, sample_project):
         """Test message when no videos match criteria."""
-        with patch("distillyzer.cli.db.get_project") as mock_get_project, \
-             patch("distillyzer.cli.harv.search_youtube") as mock_search:
+        with patch("publishing.cli.db.get_project") as mock_get_project, \
+             patch("publishing.cli.harv.search_youtube") as mock_search:
             mock_get_project.return_value = sample_project
             mock_search.return_value = []
 
@@ -299,8 +299,8 @@ class TestSuggestYoutubeCommand:
 
     def test_min_score_option(self, sample_project):
         """Test --min-score option."""
-        with patch("distillyzer.cli.db.get_project") as mock_get_project, \
-             patch("distillyzer.cli.harv.search_youtube") as mock_search:
+        with patch("publishing.cli.db.get_project") as mock_get_project, \
+             patch("publishing.cli.harv.search_youtube") as mock_search:
             mock_get_project.return_value = sample_project
             mock_search.return_value = []
 
@@ -310,8 +310,8 @@ class TestSuggestYoutubeCommand:
 
     def test_limit_option(self, sample_project):
         """Test --limit option."""
-        with patch("distillyzer.cli.db.get_project") as mock_get_project, \
-             patch("distillyzer.cli.harv.search_youtube") as mock_search:
+        with patch("publishing.cli.db.get_project") as mock_get_project, \
+             patch("publishing.cli.harv.search_youtube") as mock_search:
             mock_get_project.return_value = sample_project
             mock_search.return_value = []
 
@@ -338,7 +338,7 @@ class TestSuggestGithubCommand:
 
     def test_project_not_found(self):
         """Test error when project not found."""
-        with patch("distillyzer.cli.db.get_project") as mock_get:
+        with patch("publishing.cli.db.get_project") as mock_get:
             mock_get.return_value = None
 
             result = runner.invoke(app, ["suggest", "github", "nonexistent"])
@@ -348,7 +348,7 @@ class TestSuggestGithubCommand:
 
     def test_github_shows_placeholder(self, sample_project):
         """Test that GitHub shows placeholder message."""
-        with patch("distillyzer.cli.db.get_project") as mock_get_project:
+        with patch("publishing.cli.db.get_project") as mock_get_project:
             mock_get_project.return_value = sample_project
 
             result = runner.invoke(app, ["suggest", "github", "test-project"])
@@ -378,7 +378,7 @@ class TestSuggestAllCommand:
 
     def test_project_not_found(self):
         """Test error when project not found."""
-        with patch("distillyzer.cli.db.get_project") as mock_get:
+        with patch("publishing.cli.db.get_project") as mock_get:
             mock_get.return_value = None
 
             result = runner.invoke(app, ["suggest", "all", "nonexistent"])
@@ -403,9 +403,9 @@ class TestSuggestAllCommand:
             "description": "Python tutorial",
         }
 
-        with patch("distillyzer.cli.db.get_project") as mock_get_project, \
-             patch("distillyzer.cli.harv.search_youtube") as mock_search, \
-             patch("distillyzer.cli.harv.get_video_info") as mock_get_info:
+        with patch("publishing.cli.db.get_project") as mock_get_project, \
+             patch("publishing.cli.harv.search_youtube") as mock_search, \
+             patch("publishing.cli.harv.get_video_info") as mock_get_info:
             mock_get_project.return_value = sample_project
             mock_search.return_value = [mock_video]
             mock_get_info.return_value = mock_info

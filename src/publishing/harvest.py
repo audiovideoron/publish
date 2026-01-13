@@ -158,7 +158,7 @@ def harvest_video(url: str) -> dict:
     duration = info.get("duration", 0)
 
     # Download audio to temp directory
-    temp_dir = Path(tempfile.mkdtemp(prefix="distillyzer_"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="publishing_"))
     audio_path = download_audio(url, temp_dir)
 
     # Get or create source for channel
@@ -260,7 +260,7 @@ def harvest_repo(url: str, clone_dir: Path | None = None) -> dict:
 
     # Clone directory
     if clone_dir is None:
-        clone_dir = Path(tempfile.mkdtemp(prefix="distillyzer_repo_"))
+        clone_dir = Path(tempfile.mkdtemp(prefix="publishing_repo_"))
     repo_path = clone_dir / parsed["repo"]
 
     # Clone repo

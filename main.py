@@ -1,5 +1,5 @@
 def main():
-    print("Hello from distillyzer!")
+    print("Hello from publishing!")
 
 
 if __name__ == "__main__":

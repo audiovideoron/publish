@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
-from distillyzer import harvest
+from publishing import harvest
 
 
 class TestParseYoutubeUrl:
@@ -94,7 +94,7 @@ class TestGetVideoInfo:
             "id": "abc123",
         }
 
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 stdout=json.dumps(mock_info),
                 returncode=0,
@@ -107,7 +107,7 @@ class TestGetVideoInfo:
 
     def test_get_video_info_yt_dlp_not_found(self):
         """Test when yt-dlp is not installed."""
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.side_effect = FileNotFoundError()
 
             with pytest.raises(harvest.YtDlpError) as exc_info:
@@ -119,7 +119,7 @@ class TestGetVideoInfo:
         """Test when yt-dlp command fails."""
         import subprocess
 
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.CalledProcessError(1, "yt-dlp", stderr="Error")
 
             with pytest.raises(harvest.YtDlpError) as exc_info:
@@ -138,7 +138,7 @@ class TestSearchYoutube:
             {"id": "vid2", "title": "Result 2", "channel": "Ch2", "duration": 200},
         ]
 
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 stdout="\n".join([json.dumps(r) for r in mock_results]),
                 returncode=0,
@@ -151,7 +151,7 @@ class TestSearchYoutube:
 
     def test_search_youtube_empty(self):
         """Test YouTube search with no results."""
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="", returncode=0)
 
             result = harvest.search_youtube("obscure query", limit=5)
@@ -168,7 +168,7 @@ class TestDownloadAudio:
         mp3_file = tmp_path / "abc123.mp3"
         mp3_file.write_bytes(b"\x00" * 100)
 
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
             result = harvest.download_audio("https://youtube.com/watch?v=abc123", tmp_path)
@@ -177,7 +177,7 @@ class TestDownloadAudio:
 
     def test_download_audio_yt_dlp_not_found(self, tmp_path):
         """Test when yt-dlp is not installed."""
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.side_effect = FileNotFoundError()
 
             with pytest.raises(harvest.YtDlpError):
@@ -185,7 +185,7 @@ class TestDownloadAudio:
 
     def test_download_audio_file_not_found(self, tmp_path):
         """Test when downloaded file is not found."""
-        with patch("distillyzer.harvest.subprocess.run") as mock_run:
+        with patch("publishing.harvest.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
 
             with pytest.raises(harvest.YtDlpError) as exc_info:
@@ -199,7 +199,7 @@ class TestHarvestVideo:
 
     def test_harvest_video_already_exists(self):
         """Test harvesting when video already exists."""
-        with patch("distillyzer.harvest.db") as mock_db:
+        with patch("publishing.harvest.db") as mock_db:
             mock_db.get_item_by_url.return_value = {
                 "id": 1,
                 "title": "Existing Video",
@@ -223,10 +223,10 @@ class TestHarvestVideo:
         mp3_file = tmp_path / "abc123.mp3"
         mp3_file.write_bytes(b"\x00" * 100)
 
-        with patch("distillyzer.harvest.db") as mock_db, \
-             patch("distillyzer.harvest.get_video_info") as mock_info_fn, \
-             patch("distillyzer.harvest.download_audio") as mock_download, \
-             patch("distillyzer.harvest.tempfile.mkdtemp") as mock_mkdtemp:
+        with patch("publishing.harvest.db") as mock_db, \
+             patch("publishing.harvest.get_video_info") as mock_info_fn, \
+             patch("publishing.harvest.download_audio") as mock_download, \
+             patch("publishing.harvest.tempfile.mkdtemp") as mock_mkdtemp:
 
             mock_db.get_item_by_url.return_value = None
             mock_db.get_or_create_source.return_value = 1
@@ -252,7 +252,7 @@ class TestHarvestRepo:
 
     def test_harvest_repo_already_exists(self):
         """Test harvesting when repo already exists."""
-        with patch("distillyzer.harvest.db") as mock_db:
+        with patch("publishing.harvest.db") as mock_db:
             mock_db.get_source_by_url.return_value = {"id": 1}
 
             result = harvest.harvest_repo("https://github.com/owner/repo")
@@ -267,8 +267,8 @@ class TestHarvestRepo:
         (repo_dir / "main.py").write_text('print("hello")')
         (repo_dir / "README.md").write_text("# Test Repo")
 
-        with patch("distillyzer.harvest.db") as mock_db, \
-             patch("distillyzer.harvest.Repo") as mock_repo_class:
+        with patch("publishing.harvest.db") as mock_db, \
+             patch("publishing.harvest.Repo") as mock_repo_class:
 
             mock_db.get_source_by_url.return_value = None
             mock_db.create_source.return_value = 1
@@ -290,8 +290,8 @@ class TestHarvestRepo:
         """Test harvesting when git clone fails."""
         from git.exc import GitCommandError
 
-        with patch("distillyzer.harvest.db") as mock_db, \
-             patch("distillyzer.harvest.Repo") as mock_repo_class:
+        with patch("publishing.harvest.db") as mock_db, \
+             patch("publishing.harvest.Repo") as mock_repo_class:
 
             mock_db.get_source_by_url.return_value = None
             mock_repo_class.clone_from.side_effect = GitCommandError("clone", 1)
@@ -308,7 +308,7 @@ class TestHarvestArticle:
 
     def test_harvest_article_already_exists(self):
         """Test harvesting when article already exists."""
-        with patch("distillyzer.harvest.db") as mock_db:
+        with patch("publishing.harvest.db") as mock_db:
             mock_db.get_item_by_url.return_value = {
                 "id": 1,
                 "title": "Existing Article",
@@ -359,7 +359,7 @@ class TestHarvestArticle:
 
     def test_harvest_article_fetch_error(self):
         """Test harvesting when fetch fails."""
-        with patch("distillyzer.harvest.db") as mock_db, \
+        with patch("publishing.harvest.db") as mock_db, \
              patch("requests.get") as mock_get:
 
             mock_db.get_item_by_url.return_value = None
@@ -372,7 +372,7 @@ class TestHarvestArticle:
 
     def test_harvest_article_no_content(self):
         """Test harvesting when no content can be extracted."""
-        with patch("distillyzer.harvest.db") as mock_db, \
+        with patch("publishing.harvest.db") as mock_db, \
              patch("requests.get") as mock_get, \
              patch.object(harvest, "trafilatura") as mock_trafilatura:
 

@@ -14,7 +14,7 @@ def mock_db_connection():
     mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
     mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch("distillyzer.db.get_connection") as mock_get_conn:
+    with patch("publishing.db.get_connection") as mock_get_conn:
         mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
         yield mock_conn, mock_cursor
@@ -25,8 +25,8 @@ def mock_db_connection():
 @pytest.fixture
 def mock_openai_client():
     """Mock OpenAI client for embeddings and transcription."""
-    with patch("distillyzer.embed.client") as mock_embed_client, \
-         patch("distillyzer.transcribe.client") as mock_transcribe_client:
+    with patch("publishing.embed.client") as mock_embed_client, \
+         patch("publishing.transcribe.client") as mock_transcribe_client:
         yield {
             "embed": mock_embed_client,
             "transcribe": mock_transcribe_client,
@@ -68,9 +68,9 @@ def mock_transcription_response():
 @pytest.fixture
 def mock_anthropic_client():
     """Mock Anthropic client for Claude API (via get_anthropic_client)."""
-    with patch("distillyzer.query.get_anthropic_client") as mock_query_get_client, \
-         patch("distillyzer.extract.get_anthropic_client") as mock_extract_get_client, \
-         patch("distillyzer.artifacts.get_anthropic_client") as mock_artifacts_get_client:
+    with patch("publishing.query.get_anthropic_client") as mock_query_get_client, \
+         patch("publishing.extract.get_anthropic_client") as mock_extract_get_client, \
+         patch("publishing.artifacts.get_anthropic_client") as mock_artifacts_get_client:
         mock_query_client = MagicMock()
         mock_extract_client = MagicMock()
         mock_artifacts_client = MagicMock()

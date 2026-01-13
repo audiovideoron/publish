@@ -4,7 +4,7 @@ import pytest
 import json
 from unittest.mock import MagicMock, patch
 
-from distillyzer import extract
+from publishing import extract
 
 
 class TestSearchContext:
@@ -12,8 +12,8 @@ class TestSearchContext:
 
     def test_search_context_success(self, sample_chunks):
         """Test successful context search."""
-        with patch("distillyzer.extract.get_embedding") as mock_embed, \
-             patch("distillyzer.extract.db") as mock_db:
+        with patch("publishing.extract.get_embedding") as mock_embed, \
+             patch("publishing.extract.db") as mock_db:
 
             mock_embed.return_value = [0.1] * 1536
             mock_db.search_chunks.return_value = sample_chunks
@@ -27,8 +27,8 @@ class TestSearchContext:
 
     def test_search_context_empty(self):
         """Test context search with no results."""
-        with patch("distillyzer.extract.get_embedding") as mock_embed, \
-             patch("distillyzer.extract.db") as mock_db:
+        with patch("publishing.extract.get_embedding") as mock_embed, \
+             patch("publishing.extract.db") as mock_db:
 
             mock_embed.return_value = [0.1] * 1536
             mock_db.search_chunks.return_value = []
@@ -52,8 +52,8 @@ class TestSearchContext:
             "similarity": 0.9,
         }]
 
-        with patch("distillyzer.extract.get_embedding") as mock_embed, \
-             patch("distillyzer.extract.db") as mock_db:
+        with patch("publishing.extract.get_embedding") as mock_embed, \
+             patch("publishing.extract.db") as mock_db:
 
             mock_embed.return_value = [0.1] * 1536
             mock_db.search_chunks.return_value = chunks
@@ -69,7 +69,7 @@ class TestExtractArtifacts:
 
     def test_extract_artifacts_no_content(self):
         """Test extraction when no content found."""
-        with patch("distillyzer.extract.search_context") as mock_search:
+        with patch("publishing.extract.search_context") as mock_search:
             mock_search.return_value = ("", [])
 
             result = extract.extract_artifacts("obscure topic")
@@ -96,8 +96,8 @@ class TestExtractArtifacts:
         mock_response.content = [MagicMock(text=json.dumps(mock_artifacts))]
         mock_response.usage = MagicMock(input_tokens=500, output_tokens=200)
 
-        with patch("distillyzer.extract.search_context") as mock_search, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.search_context") as mock_search, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_search.return_value = ("Context content", sample_chunks)
             mock_call_claude.return_value = mock_response
@@ -117,8 +117,8 @@ class TestExtractArtifacts:
         mock_response.content = [MagicMock(text=json.dumps(mock_artifacts))]
         mock_response.usage = MagicMock(input_tokens=300, output_tokens=50)
 
-        with patch("distillyzer.extract.search_context") as mock_search, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.search_context") as mock_search, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_search.return_value = ("Context", sample_chunks)
             mock_call_claude.return_value = mock_response
@@ -140,8 +140,8 @@ class TestExtractArtifacts:
         mock_response.content = [MagicMock(text=response_text)]
         mock_response.usage = MagicMock(input_tokens=300, output_tokens=100)
 
-        with patch("distillyzer.extract.search_context") as mock_search, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.search_context") as mock_search, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_search.return_value = ("Context", sample_chunks)
             mock_call_claude.return_value = mock_response
@@ -157,8 +157,8 @@ class TestExtractArtifacts:
         mock_response.content = [MagicMock(text="This is not JSON")]
         mock_response.usage = MagicMock(input_tokens=300, output_tokens=50)
 
-        with patch("distillyzer.extract.search_context") as mock_search, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.search_context") as mock_search, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_search.return_value = ("Context", sample_chunks)
             mock_call_claude.return_value = mock_response
@@ -173,8 +173,8 @@ class TestExtractArtifacts:
         """Test extraction with API connection error."""
         import anthropic
 
-        with patch("distillyzer.extract.search_context") as mock_search, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.search_context") as mock_search, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_search.return_value = ("Context", sample_chunks)
             mock_call_claude.side_effect = anthropic.APIConnectionError(
@@ -190,8 +190,8 @@ class TestExtractArtifacts:
         """Test extraction with rate limit error."""
         import anthropic
 
-        with patch("distillyzer.extract.search_context") as mock_search, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.search_context") as mock_search, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_search.return_value = ("Context", sample_chunks)
             mock_call_claude.side_effect = anthropic.RateLimitError(
@@ -210,7 +210,7 @@ class TestExtractFromItem:
 
     def test_extract_from_item_not_found(self):
         """Test extraction from non-existent item."""
-        with patch("distillyzer.extract.db") as mock_db:
+        with patch("publishing.extract.db") as mock_db:
             mock_db.get_items_with_chunks.return_value = []
 
             result = extract.extract_from_item(999)
@@ -219,7 +219,7 @@ class TestExtractFromItem:
 
     def test_extract_from_item_no_chunks(self):
         """Test extraction from item with no chunks."""
-        with patch("distillyzer.extract.db") as mock_db:
+        with patch("publishing.extract.db") as mock_db:
             mock_db.get_items_with_chunks.return_value = [{
                 "id": 1,
                 "title": "Empty Video",
@@ -250,8 +250,8 @@ class TestExtractFromItem:
         mock_response.content = [MagicMock(text=json.dumps(mock_artifacts))]
         mock_response.usage = MagicMock(input_tokens=400, output_tokens=150)
 
-        with patch("distillyzer.extract.db") as mock_db, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.db") as mock_db, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_db.get_items_with_chunks.return_value = [mock_item]
             mock_call_claude.return_value = mock_response
@@ -272,8 +272,8 @@ class TestExtractFromItem:
             "chunks": [{"content": "Content"}],
         }
 
-        with patch("distillyzer.extract.db") as mock_db, \
-             patch("distillyzer.extract._call_claude") as mock_call_claude:
+        with patch("publishing.extract.db") as mock_db, \
+             patch("publishing.extract._call_claude") as mock_call_claude:
 
             mock_db.get_items_with_chunks.return_value = [mock_item]
             mock_call_claude.side_effect = anthropic.APIConnectionError(
@@ -316,7 +316,7 @@ class TestArtifactType:
 
         for t in valid_types:
             # Should not raise when used in extract_artifacts
-            with patch("distillyzer.extract.search_context") as mock_search:
+            with patch("publishing.extract.search_context") as mock_search:
                 mock_search.return_value = ("", [])
                 result = extract.extract_artifacts("topic", artifact_type=t)
                 assert result is not None

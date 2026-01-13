@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from distillyzer import query
+from publishing import query
 
 
 class TestFormatTimestamp:
@@ -102,8 +102,8 @@ class TestSearch:
 
     def test_search_success(self, sample_chunks):
         """Test successful search."""
-        with patch("distillyzer.query.get_embedding") as mock_embed, \
-             patch("distillyzer.query.db") as mock_db:
+        with patch("publishing.query.get_embedding") as mock_embed, \
+             patch("publishing.query.db") as mock_db:
 
             mock_embed.return_value = [0.1] * 1536
             mock_db.search_chunks.return_value = sample_chunks
@@ -116,8 +116,8 @@ class TestSearch:
 
     def test_search_empty_results(self):
         """Test search with no results."""
-        with patch("distillyzer.query.get_embedding") as mock_embed, \
-             patch("distillyzer.query.db") as mock_db:
+        with patch("publishing.query.get_embedding") as mock_embed, \
+             patch("publishing.query.db") as mock_db:
 
             mock_embed.return_value = [0.1] * 1536
             mock_db.search_chunks.return_value = []
@@ -136,8 +136,8 @@ class TestAsk:
         mock_response.content = [MagicMock(text="Machine learning is a subset of AI.")]
         mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -157,8 +157,8 @@ class TestAsk:
         mock_response.content = [MagicMock(text="I don't have information on that.")]
         mock_response.usage = MagicMock(input_tokens=50, output_tokens=20)
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -174,8 +174,8 @@ class TestAsk:
         """Test asking when API connection fails."""
         import anthropic
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -191,8 +191,8 @@ class TestAsk:
         """Test asking when rate limited."""
         import anthropic
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -210,8 +210,8 @@ class TestAsk:
         """Test asking when API returns error status."""
         import anthropic
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -237,8 +237,8 @@ class TestChatTurn:
         mock_response.content = [MagicMock(text="Hello! How can I help?")]
         mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -262,8 +262,8 @@ class TestChatTurn:
             {"role": "assistant", "content": "AI stands for Artificial Intelligence."},
         ]
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -290,8 +290,8 @@ class TestChatTurn:
             {"role": "assistant", "content": "Answer 2"},
         ]
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -312,8 +312,8 @@ class TestChatTurn:
         """Test chat turn with API error."""
         import anthropic
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
@@ -331,8 +331,8 @@ class TestChatTurn:
         mock_response.content = [MagicMock(text="Response")]
         mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
 
-        with patch("distillyzer.query.search") as mock_search, \
-             patch("distillyzer.query.get_anthropic_client") as mock_get_client:
+        with patch("publishing.query.search") as mock_search, \
+             patch("publishing.query.get_anthropic_client") as mock_get_client:
 
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client

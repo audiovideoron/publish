@@ -1,25 +1,25 @@
 """
 Distillyzer MCP Server
 
-Exposes distillyzer's knowledge base to Claude Desktop.
+Exposes publishing's knowledge base to Claude Desktop.
 
 Usage:
     # Test with inspector (use arch -arm64 on Apple Silicon Macs)
-    arch -arm64 uv run mcp dev src/distillyzer/mcp_server.py
+    arch -arm64 uv run mcp dev src/publishing/mcp_server.py
 
     # Install in Claude Desktop
-    uv run mcp install src/distillyzer/mcp_server.py --name "Distillyzer"
+    uv run mcp install src/publishing/mcp_server.py --name "Distillyzer"
 """
 
 from mcp.server.fastmcp import FastMCP
 
 # TODO: Replace subprocess calls with direct imports once working
-# from distillyzer.db import get_session
-# from distillyzer.query import semantic_search
+# from publishing.db import get_session
+# from publishing.query import semantic_search
 
 import subprocess
 
-mcp = FastMCP("distillyzer")
+mcp = FastMCP("publishing")
 
 
 @mcp.tool()
@@ -139,7 +139,7 @@ def search_youtube(topic: str, limit: int = 10) -> str:
 @mcp.tool()
 def list_projects() -> str:
     """
-    List all distillyzer projects.
+    List all publishing projects.
     """
     result = subprocess.run(
         ["dz", "project", "list"],

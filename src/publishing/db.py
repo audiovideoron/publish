@@ -35,7 +35,7 @@ def _validate_database_url(url: str | None) -> str:
         raise DatabaseConfigError(
             "DATABASE_URL environment variable is not set.\n"
             "Please set it to a valid PostgreSQL connection string, e.g.:\n"
-            "  export DATABASE_URL='postgresql://user:password@localhost:5432/distillyzer'\n"
+            "  export DATABASE_URL='postgresql://user:password@localhost:5432/publishing'\n"
             "Or add it to your .env file."
         )
 
@@ -46,7 +46,7 @@ def _validate_database_url(url: str | None) -> str:
         raise DatabaseConfigError(
             f"DATABASE_URL has invalid scheme.\n"
             f"Expected 'postgresql://' or 'postgres://', got: {url.split('://')[0] if '://' in url else 'no scheme'}\n"
-            f"Example: postgresql://user:password@localhost:5432/distillyzer"
+            f"Example: postgresql://user:password@localhost:5432/publishing"
         )
 
     try:
@@ -55,7 +55,7 @@ def _validate_database_url(url: str | None) -> str:
         raise DatabaseConfigError(
             f"DATABASE_URL could not be parsed: {e}\n"
             f"Please provide a valid PostgreSQL connection string.\n"
-            f"Example: postgresql://user:password@localhost:5432/distillyzer"
+            f"Example: postgresql://user:password@localhost:5432/publishing"
         )
 
     # Check for host
@@ -63,7 +63,7 @@ def _validate_database_url(url: str | None) -> str:
         raise DatabaseConfigError(
             f"DATABASE_URL is missing the host.\n"
             f"Got: {url}\n"
-            f"Example: postgresql://user:password@localhost:5432/distillyzer"
+            f"Example: postgresql://user:password@localhost:5432/publishing"
         )
 
     # Check for database name (path should be /dbname)
@@ -72,7 +72,7 @@ def _validate_database_url(url: str | None) -> str:
         raise DatabaseConfigError(
             f"DATABASE_URL is missing the database name.\n"
             f"Got: {url}\n"
-            f"Example: postgresql://user:password@localhost:5432/distillyzer"
+            f"Example: postgresql://user:password@localhost:5432/publishing"
         )
 
     return url

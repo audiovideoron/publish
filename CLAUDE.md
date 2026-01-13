@@ -29,12 +29,12 @@ ruff check src/ --fix
 
 The CLI is invoked via `dz`:
 ```bash
-dz harvest <url>      # Ingest YouTube video, GitHub repo, or article
-dz query "question"   # Semantic search with Claude answer
-dz chat               # Interactive conversation mode
-dz stats              # Knowledge base statistics
-dz demo "topic"       # Generate hello-world project from lessons
-dz visualize "concept"  # Generate diagram via Gemini
+pub harvest <url>      # Ingest YouTube video, GitHub repo, or article
+pub query "question"   # Semantic search with Claude answer
+pub chat               # Interactive conversation mode
+pub stats              # Knowledge base statistics
+pub demo "topic"       # Generate hello-world project from lessons
+pub visualize "concept"  # Generate diagram via Gemini
 ```
 
 ## Architecture
@@ -46,7 +46,7 @@ Content Source → Harvest → Transcribe/Parse → Chunk → Embed → PostgreS
 User Query → Embed → Similarity Search → Top Chunks → Claude → Answer with Sources
 ```
 
-### Core Modules (src/distillyzer/)
+### Core Modules (src/publishing/)
 
 - **cli.py** - Typer CLI entry point. Sub-apps: `artifacts`, `skills`, `project`, `sources`, `items`, `suggest`
 - **harvest.py** - Downloads content (yt-dlp for video, GitPython for repos, trafilatura for articles)

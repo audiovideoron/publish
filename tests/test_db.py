@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 import numpy as np
 
-from distillyzer import db
+from publishing import db
 
 
 class TestGetConnection:
@@ -35,7 +35,7 @@ class TestSourceOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (42,)
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -58,7 +58,7 @@ class TestSourceOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (1, "youtube_channel", "Test", "https://example.com", {})
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -76,7 +76,7 @@ class TestSourceOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = None
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -95,7 +95,7 @@ class TestSourceOperations:
             (2, "github_repo", "Repo 1", "https://github.com/1", {}),
         ]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -113,7 +113,7 @@ class TestSourceOperations:
         mock_cursor = MagicMock()
         mock_cursor.rowcount = 1
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -130,7 +130,7 @@ class TestSourceOperations:
         mock_cursor = MagicMock()
         mock_cursor.rowcount = 0
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -150,7 +150,7 @@ class TestItemOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (123,)
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -172,7 +172,7 @@ class TestItemOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (1, 1, "video", "Test", "https://yt.com/v", {})
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -191,7 +191,7 @@ class TestItemOperations:
             (2, 1, "video", "Video 2", "https://yt.com/2", {}),
         ]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -209,7 +209,7 @@ class TestItemOperations:
             (1, 1, "video", "Video 1", "https://yt.com/1", {}),
         ]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -232,7 +232,7 @@ class TestChunkOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (456,)
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -256,7 +256,7 @@ class TestChunkOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.side_effect = [(1,), (2,), (3,)]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -282,7 +282,7 @@ class TestChunkOperations:
             (2, "Content 2", 1, 60.0, 120.0, "Video 1", "https://yt.com/1", "video", 0.85),
         ]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -305,7 +305,7 @@ class TestProjectOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (1,)
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -330,7 +330,7 @@ class TestProjectOperations:
             ["AI"], ["Python"], ["GPU"], None, {}, "2024-01-01", "2024-01-01"
         )
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -350,7 +350,7 @@ class TestProjectOperations:
             (2, "proj2", "Desc 2", "archived", [], [], [], None, {}, "2024-01-01", "2024-01-01"),
         ]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -368,7 +368,7 @@ class TestProjectOperations:
             (1, "proj1", "Desc 1", "active", [], [], [], None, {}, "2024-01-01", "2024-01-01"),
         ]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -390,7 +390,7 @@ class TestSkillOperations:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (1,)
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -414,7 +414,7 @@ class TestSkillOperations:
             "Content", {}, "2024-01-01", "2024-01-01"
         )
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
@@ -435,7 +435,7 @@ class TestStats:
         mock_cursor = MagicMock()
         mock_cursor.fetchone.side_effect = [(5,), (25,), (150,)]
 
-        with patch("distillyzer.db.get_connection") as mock_get_conn:
+        with patch("publishing.db.get_connection") as mock_get_conn:
             mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)

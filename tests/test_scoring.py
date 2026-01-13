@@ -2,7 +2,7 @@
 
 import pytest
 
-from distillyzer import scoring
+from publishing import scoring
 
 
 class TestScoreVideo:
