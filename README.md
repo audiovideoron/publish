@@ -1,4 +1,4 @@
-# Distillyzer
+# Publishing
 
 Build a personal knowledge base from YouTube videos and GitHub repos. Transcribe, embed, and semantically search everything you care about.
 
@@ -6,7 +6,7 @@ Build a personal knowledge base from YouTube videos and GitHub repos. Transcribe
 
 YouTube's search is optimized for engagement, not learning. You watch a great 2-hour tutorial, forget where they explained that one thing, and spend 20 minutes scrubbing. GitHub repos have answers buried in code you'll never find with grep.
 
-Distillyzer extracts knowledge from video and code, chunks it with timestamps, embeds it in a vector database, and lets you query it conversationally.
+Publishing extracts knowledge from video and code, chunks it with timestamps, embeds it in a vector database, and lets you query it conversationally.
 
 ## How It Works
 

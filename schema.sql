@@ -1,4 +1,4 @@
--- Distillyzer database schema
+-- Publishing database schema
 -- Requires: PostgreSQL with pgvector extension
 
 CREATE EXTENSION IF NOT EXISTS vector;

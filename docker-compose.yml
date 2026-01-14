@@ -1,9 +1,9 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: distillyzer_db
+    container_name: publishing_db
     environment:
-      POSTGRES_DB: distillyzer
+      POSTGRES_DB: publishing
       POSTGRES_USER: rtp
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:

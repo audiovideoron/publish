@@ -1,4 +1,4 @@
-"""Database operations for Distillyzer."""
+"""Database operations for Publishing."""
 
 import atexit
 import os

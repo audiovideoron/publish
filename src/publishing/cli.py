@@ -1,4 +1,4 @@
-"""Distillyzer CLI - Personal learning accelerator."""
+"""Publishing CLI - Personal learning accelerator."""
 
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from rich.markdown import Markdown
 
 from . import db, harvest as harv, transcribe, embed as emb, query as q, visualize as viz, extract as ext, artifacts as art, search_queries, scoring
 
-app = typer.Typer(help="Distillyzer - Harvest knowledge, query it, use it.")
+app = typer.Typer(help="Publishing - Harvest knowledge, query it, use it.")
 artifacts_app = typer.Typer(help="Manage and use extracted artifacts.")
 app.add_typer(artifacts_app, name="artifacts")
 skills_app = typer.Typer(help="Manage presentation skills.")
@@ -290,7 +290,7 @@ def _generate_index_html_grouped(grouped_items: dict[str, list[dict]], output_pa
         "<!DOCTYPE html>",
         "<html><head>",
         "<meta charset='utf-8'>",
-        "<title>Distillyzer Knowledge Index</title>",
+        "<title>Publishing Knowledge Index</title>",
         "<style>",
         "body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; line-height: 1.6; }",
         "h1 { color: #333; }",
@@ -316,7 +316,7 @@ def _generate_index_html_grouped(grouped_items: dict[str, list[dict]], output_pa
         ".code .preview { font-family: monospace; font-size: 0.85em; background: #f5f5f5; padding: 0.2em 0.4em; border-radius: 2px; }",
         "</style>",
         "</head><body>",
-        "<h1>Distillyzer Knowledge Index</h1>",
+        "<h1>Publishing Knowledge Index</h1>",
     ]
 
     for source_name, items in grouped_items.items():

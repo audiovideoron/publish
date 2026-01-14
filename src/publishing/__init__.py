@@ -1,4 +1,4 @@
-"""Distillyzer - Personal learning accelerator.
+"""Publishing - Personal learning accelerator.
 
 Harvest knowledge from YouTube, GitHub, and articles. Query it with semantic search.
 Extract implementation artifacts. Build hello world demos.

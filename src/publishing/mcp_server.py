@@ -1,5 +1,5 @@
 """
-Distillyzer MCP Server
+Publishing MCP Server
 
 Exposes publishing's knowledge base to Claude Desktop.
 
@@ -8,7 +8,7 @@ Usage:
     arch -arm64 uv run mcp dev src/publishing/mcp_server.py
 
     # Install in Claude Desktop
-    uv run mcp install src/publishing/mcp_server.py --name "Distillyzer"
+    uv run mcp install src/publishing/mcp_server.py --name "Publishing"
 """
 
 from mcp.server.fastmcp import FastMCP

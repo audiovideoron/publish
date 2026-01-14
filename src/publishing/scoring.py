@@ -1,7 +1,7 @@
 """Content quality scoring for YouTube videos and GitHub repositories.
 
 Provides scoring functions to evaluate educational quality and filter content
-for Distillyzer's recommendation system.
+for Publishing's recommendation system.
 """
 
 import re
