@@ -1,4 +1,4 @@
-"""Tests for the 'dz suggest' CLI command."""
+"""Tests for the 'pub suggest' CLI command."""
 
 import pytest
 from unittest.mock import patch, MagicMock
@@ -228,7 +228,7 @@ class TestSuggestGithubHelper:
 
 
 class TestSuggestYoutubeCommand:
-    """Tests for the 'dz suggest youtube' CLI command."""
+    """Tests for the 'pub suggest youtube' CLI command."""
 
     @pytest.fixture
     def sample_project(self):
@@ -321,7 +321,7 @@ class TestSuggestYoutubeCommand:
 
 
 class TestSuggestGithubCommand:
-    """Tests for the 'dz suggest github' CLI command."""
+    """Tests for the 'pub suggest github' CLI command."""
 
     @pytest.fixture
     def sample_project(self):
@@ -361,7 +361,7 @@ class TestSuggestGithubCommand:
 
 
 class TestSuggestAllCommand:
-    """Tests for the 'dz suggest all' CLI command."""
+    """Tests for the 'pub suggest all' CLI command."""
 
     @pytest.fixture
     def sample_project(self):

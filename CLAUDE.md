@@ -27,7 +27,7 @@ ruff check src/ --fix
 
 ## CLI Usage
 
-The CLI is invoked via `dz`:
+The CLI is invoked via `pub`:
 ```bash
 pub harvest <url>      # Ingest YouTube video, GitHub repo, or article
 pub query "question"   # Semantic search with Claude answer

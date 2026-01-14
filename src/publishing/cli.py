@@ -58,7 +58,7 @@ def search(query: str, limit: int = 10):
             )
 
         console.print(table)
-        console.print("\n[dim]To harvest a video:[/dim] dz harvest <url>")
+        console.print("\n[dim]To harvest a video:[/dim] pub harvest <url>")
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
 
@@ -194,7 +194,7 @@ def harvest_channel(
             table.add_row(str(i), video["title"][:50], video["url"])
 
         console.print(table)
-        console.print("\n[dim]To harvest a video:[/dim] dz harvest <url>")
+        console.print("\n[dim]To harvest a video:[/dim] pub harvest <url>")
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
 
@@ -448,8 +448,8 @@ def embed(
     Useful when embedding model or chunking strategy changes.
 
     Examples:
-        dz embed 5           # Re-embed item with ID 5
-        dz embed --all       # Re-embed all items
+        pub embed 5           # Re-embed item with ID 5
+        pub embed --all       # Re-embed all items
     """
     try:
         if all_items:
@@ -499,8 +499,8 @@ def embed(
         else:
             console.print("[red]Error:[/red] Provide an item ID or use --all")
             console.print("[dim]Examples:[/dim]")
-            console.print("  dz embed 5       # Re-embed item 5")
-            console.print("  dz embed --all   # Re-embed all items")
+            console.print("  pub embed 5       # Re-embed item 5")
+            console.print("  pub embed --all   # Re-embed all items")
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -564,9 +564,9 @@ def extract(
     """Extract implementation artifacts from your knowledge base.
 
     Examples:
-        dz extract "agentic engineering"
-        dz extract "prompt design" --type prompt
-        dz extract --item 3 --type checklist
+        pub extract "agentic engineering"
+        pub extract "prompt design" --type prompt
+        pub extract --item 3 --type checklist
     """
     try:
         if not topic and not item_id:
@@ -641,7 +641,7 @@ def artifacts_list():
 
         if not artifacts:
             console.print("[dim]No artifacts found. Extract some first:[/dim]")
-            console.print("  dz extract \"topic\" -o artifacts/topic.json")
+            console.print("  pub extract \"topic\" -o artifacts/topic.json")
             return
 
         # Group by source file
@@ -681,7 +681,7 @@ def artifacts_show(name: str):
 
         if not artifact:
             console.print(f"[red]Artifact not found:[/red] {name}")
-            console.print("[dim]Use 'dz artifacts list' to see available artifacts[/dim]")
+            console.print("[dim]Use 'pub artifacts list' to see available artifacts[/dim]")
             return
 
         atype = artifact.get("type", "unknown").upper()
@@ -709,7 +709,7 @@ def artifacts_apply(
     """Apply an artifact to your specific context.
 
     Example:
-        dz artifacts apply "Agentic Layer Pattern" -c "I have a FastAPI backend"
+        pub artifacts apply "Agentic Layer Pattern" -c "I have a FastAPI backend"
     """
     try:
         artifact = art.find_artifact(name)
@@ -769,7 +769,7 @@ def artifacts_scaffold(
     Creates a runnable demo that implements the technique.
 
     Example:
-        dz artifacts scaffold "Core Four" -n core-four-demo
+        pub artifacts scaffold "Core Four" -n core-four-demo
     """
     try:
         artifact = art.find_artifact(name)
@@ -835,8 +835,8 @@ def demo(
     proposes a minimal demo, and builds it after confirmation.
 
     Example:
-        dz demo "agentic layer"
-        dz demo "prompt engineering" -n prompt-demo -o ~/projects/
+        pub demo "agentic layer"
+        pub demo "prompt engineering" -n prompt-demo -o ~/projects/
     """
     try:
         console.print(f"[yellow]Analyzing:[/yellow] {topic}\n")
@@ -923,7 +923,7 @@ def skills_list():
 
         if not skills:
             console.print("[dim]No skills found.[/dim]")
-            console.print("[dim]Create one with:[/dim] dz skills create")
+            console.print("[dim]Create one with:[/dim] pub skills create")
             return
 
         table = Table(show_header=True)
@@ -983,7 +983,7 @@ def skills_create(
     """Create a new skill.
 
     Example:
-        dz skills create -n "diagnostic-troubleshooting" -t "diagnostic" -d "Outputs diagnostic frameworks as PDF" -f skill.md
+        pub skills create -n "diagnostic-troubleshooting" -t "diagnostic" -d "Outputs diagnostic frameworks as PDF" -f skill.md
     """
     try:
         # Get content
@@ -1080,7 +1080,7 @@ def projects_create(
     """Create a new project with faceted organization.
 
     Example:
-        dz project create power-quality --about "power quality,flicker" --uses "python,signal processing" --needs "data collection"
+        pub project create power-quality --about "power quality,flicker" --uses "python,signal processing" --needs "data collection"
     """
     try:
         # Check if project already exists
@@ -1125,7 +1125,7 @@ def projects_list(
                 console.print(f"[dim]No {status} projects found.[/dim]")
             else:
                 console.print("[dim]No projects found.[/dim]")
-            console.print("[dim]Create one with:[/dim] dz project create <name>")
+            console.print("[dim]Create one with:[/dim] pub project create <name>")
             return
 
         table = Table(show_header=True)
@@ -1227,8 +1227,8 @@ def projects_link(
     """Link an item or skill to a project.
 
     Example:
-        dz project link my-project --item 5
-        dz project link my-project --skill "diagnostic-troubleshooting"
+        pub project link my-project --item 5
+        pub project link my-project --skill "diagnostic-troubleshooting"
     """
     try:
         project = db.get_project(name)
@@ -1269,8 +1269,8 @@ def projects_unlink(
     """Unlink an item or skill from a project.
 
     Example:
-        dz project unlink my-project --item 5
-        dz project unlink my-project --skill "diagnostic-troubleshooting"
+        pub project unlink my-project --item 5
+        pub project unlink my-project --skill "diagnostic-troubleshooting"
     """
     try:
         project = db.get_project(name)
@@ -1314,8 +1314,8 @@ def projects_update(
     """Update a project's facets, description, or status.
 
     Example:
-        dz project update my-project --status completed
-        dz project update my-project --about "new topic,another topic"
+        pub project update my-project --status completed
+        pub project update my-project --about "new topic,another topic"
     """
     try:
         project = db.get_project(name)
@@ -1370,8 +1370,8 @@ def projects_embed(
     """Embed project facets for cross-pollination discovery.
 
     Example:
-        dz project embed my-project
-        dz project embed all
+        pub project embed my-project
+        pub project embed all
     """
     try:
         if name == "all" or name is None:
@@ -1422,9 +1422,9 @@ def projects_discover(
     Default searches for content matching what the project NEEDS.
 
     Example:
-        dz project discover my-project
-        dz project discover my-project --facet uses
-        dz project discover my-project --threshold 0.4
+        pub project discover my-project
+        pub project discover my-project --facet uses
+        pub project discover my-project --threshold 0.4
     """
     try:
         project = db.get_project(name)
@@ -1452,7 +1452,7 @@ def projects_discover(
         if not results:
             # Maybe project isn't embedded yet
             console.print("[dim]No matches found. Try embedding the project first:[/dim]")
-            console.print(f"  dz project embed {name}")
+            console.print(f"  pub project embed {name}")
             return
 
         # Display results
@@ -1493,8 +1493,8 @@ def crosspolinate(
     find which active projects might need it.
 
     Example:
-        dz crosspolinate "Python decorators for caching"
-        dz crosspolinate "vector embeddings" --facet uses
+        pub crosspolinate "Python decorators for caching"
+        pub crosspolinate "vector embeddings" --facet uses
     """
     try:
         console.print(f"[yellow]Finding projects that {facet}:[/yellow] {query_text}\n")
@@ -1511,7 +1511,7 @@ def crosspolinate(
 
         if not projects:
             console.print("[dim]No matching projects found[/dim]")
-            console.print("[dim]Ensure projects are embedded:[/dim] dz project embed all")
+            console.print("[dim]Ensure projects are embedded:[/dim] pub project embed all")
             return
 
         table = Table(show_header=True)
@@ -1542,7 +1542,7 @@ def sources_list():
 
         if not sources:
             console.print("[dim]No sources found.[/dim]")
-            console.print("[dim]Harvest content to create sources:[/dim] dz harvest <url>")
+            console.print("[dim]Harvest content to create sources:[/dim] pub harvest <url>")
             return
 
         table = Table(show_header=True)
@@ -1580,8 +1580,8 @@ def sources_delete(
     remain in the database (they will show as having no source).
 
     Example:
-        dz sources delete 3
-        dz sources delete 3 --force
+        pub sources delete 3
+        pub sources delete 3 --force
     """
     try:
         # First check if source exists
@@ -1590,7 +1590,7 @@ def sources_delete(
 
         if not source:
             console.print(f"[red]Source not found:[/red] ID {source_id}")
-            console.print("[dim]Use 'dz sources list' to see available sources[/dim]")
+            console.print("[dim]Use 'pub sources list' to see available sources[/dim]")
             return
 
         # Show source details
@@ -1630,7 +1630,7 @@ def items_list(
                 console.print(f"[dim]No items found for source ID {source_id}.[/dim]")
             else:
                 console.print("[dim]No items found.[/dim]")
-            console.print("[dim]Harvest content to create items:[/dim] dz harvest <url>")
+            console.print("[dim]Harvest content to create items:[/dim] pub harvest <url>")
             return
 
         table = Table(show_header=True)
@@ -1668,8 +1668,8 @@ def items_delete(
     This will also delete all associated chunks (embeddings) for this item.
 
     Example:
-        dz items delete 5
-        dz items delete 5 --force
+        pub items delete 5
+        pub items delete 5 --force
     """
     try:
         # First check if item exists
@@ -1678,7 +1678,7 @@ def items_delete(
 
         if not item:
             console.print(f"[red]Item not found:[/red] ID {item_id}")
-            console.print("[dim]Use 'dz items list' to see available items[/dim]")
+            console.print("[dim]Use 'pub items list' to see available items[/dim]")
             return
 
         # Show item details
@@ -1744,7 +1744,7 @@ def _display_project_facets(project: dict) -> None:
         console.print(f"[dim]Based on: {', '.join(facet_parts)}[/dim]\n")
     else:
         console.print("[yellow]Warning: Project has no facets defined.[/yellow]")
-        console.print("[dim]Add facets with: dz project update <name> --needs 'topic1,topic2'[/dim]\n")
+        console.print("[dim]Add facets with: pub project update <name> --needs 'topic1,topic2'[/dim]\n")
 
 
 def _suggest_youtube(
@@ -1873,15 +1873,15 @@ def suggest_youtube(
     and ABOUT facets, then scores and ranks the results by educational quality.
 
     Example:
-        dz suggest youtube my-project
-        dz suggest youtube my-project --min-score 60 --limit 5
+        pub suggest youtube my-project
+        pub suggest youtube my-project --min-score 60 --limit 5
     """
     try:
         # Load project
         project = db.get_project(project_name)
         if not project:
             console.print(f"[red]Project not found:[/red] {project_name}")
-            console.print("[dim]Use 'dz project list' to see available projects[/dim]")
+            console.print("[dim]Use 'pub project list' to see available projects[/dim]")
             return
 
         console.print(f"[yellow]Suggestions for project:[/yellow] {project_name}\n")
@@ -1927,7 +1927,7 @@ def suggest_youtube(
             )
 
         console.print(table)
-        console.print("\n[dim]To harvest a video:[/dim] dz harvest <url>")
+        console.print("\n[dim]To harvest a video:[/dim] pub harvest <url>")
 
         # Show URLs for easy copying
         console.print("\n[dim]Video URLs:[/dim]")
@@ -1957,15 +1957,15 @@ def suggest_github(
     the queries that would be used.
 
     Example:
-        dz suggest github my-project
-        dz suggest github my-project --min-score 60 --limit 5
+        pub suggest github my-project
+        pub suggest github my-project --min-score 60 --limit 5
     """
     try:
         # Load project
         project = db.get_project(project_name)
         if not project:
             console.print(f"[red]Project not found:[/red] {project_name}")
-            console.print("[dim]Use 'dz project list' to see available projects[/dim]")
+            console.print("[dim]Use 'pub project list' to see available projects[/dim]")
             return
 
         console.print(f"[yellow]Suggestions for project:[/yellow] {project_name}\n")
@@ -2021,15 +2021,15 @@ def suggest_all(
     based on the project's facets.
 
     Example:
-        dz suggest all my-project
-        dz suggest all my-project --min-score 50 --limit 5
+        pub suggest all my-project
+        pub suggest all my-project --min-score 50 --limit 5
     """
     try:
         # Load project
         project = db.get_project(project_name)
         if not project:
             console.print(f"[red]Project not found:[/red] {project_name}")
-            console.print("[dim]Use 'dz project list' to see available projects[/dim]")
+            console.print("[dim]Use 'pub project list' to see available projects[/dim]")
             return
 
         console.print(f"[yellow]Suggestions for project:[/yellow] {project_name}\n")
@@ -2104,8 +2104,8 @@ def suggest_all(
 
         # Summary
         console.print("\n[dim]To harvest content:[/dim]")
-        console.print("  dz harvest <youtube_url>")
-        console.print("  dz harvest <github_url>")
+        console.print("  pub harvest <youtube_url>")
+        console.print("  pub harvest <github_url>")
 
         if videos:
             console.print("\n[dim]Top YouTube URLs:[/dim]")

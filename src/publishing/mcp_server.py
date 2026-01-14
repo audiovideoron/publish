@@ -30,7 +30,7 @@ def query(question: str, sources: int = 5) -> str:
     Returns relevant chunks with sources and timestamps.
     """
     result = subprocess.run(
-        ["dz", "query", question, "--sources", str(sources)],
+        ["pub", "query", question, "--sources", str(sources)],
         capture_output=True,
         text=True
     )
@@ -47,7 +47,7 @@ def stats() -> str:
     Returns counts of items, sources, and projects.
     """
     result = subprocess.run(
-        ["dz", "stats"],
+        ["pub", "stats"],
         capture_output=True,
         text=True
     )
@@ -64,7 +64,7 @@ def harvest(url: str) -> str:
     Downloads, transcribes (if video), chunks, and embeds the content.
     """
     result = subprocess.run(
-        ["dz", "harvest", url],
+        ["pub", "harvest", url],
         capture_output=True,
         text=True
     )
@@ -85,7 +85,7 @@ def harvest_channel(channel_url: str, limit: int = 10) -> str:
         limit: Maximum videos to list
     """
     result = subprocess.run(
-        ["dz", "harvest-channel", channel_url, "--limit", str(limit)],
+        ["pub", "harvest-channel", channel_url, "--limit", str(limit)],
         capture_output=True,
         text=True
     )
@@ -107,9 +107,9 @@ def embed(item_id: int = 0, all_items: bool = False) -> str:
         all_items: Re-embed all items
     """
     if all_items:
-        cmd = ["dz", "embed", "--all"]
+        cmd = ["pub", "embed", "--all"]
     elif item_id > 0:
-        cmd = ["dz", "embed", str(item_id)]
+        cmd = ["pub", "embed", str(item_id)]
     else:
         return "Error: Provide either item_id or set all_items=True"
 
@@ -127,7 +127,7 @@ def search_youtube(topic: str, limit: int = 10) -> str:
     Returns video titles and URLs for potential harvesting.
     """
     result = subprocess.run(
-        ["dz", "search", topic, "--limit", str(limit)],
+        ["pub", "search", topic, "--limit", str(limit)],
         capture_output=True,
         text=True
     )
@@ -142,7 +142,7 @@ def list_projects() -> str:
     List all publishing projects.
     """
     result = subprocess.run(
-        ["dz", "project", "list"],
+        ["pub", "project", "list"],
         capture_output=True,
         text=True
     )
@@ -159,7 +159,7 @@ def project_discover(name: str) -> str:
     Cross-pollination: Find content that could help your project.
     """
     result = subprocess.run(
-        ["dz", "project", "discover", name],
+        ["pub", "project", "discover", name],
         capture_output=True,
         text=True
     )
@@ -174,7 +174,7 @@ def extract(topic: str) -> str:
     Extract patterns, prompts, or checklists from your knowledge.
     """
     result = subprocess.run(
-        ["dz", "extract", topic],
+        ["pub", "extract", topic],
         capture_output=True,
         text=True
     )
@@ -189,7 +189,7 @@ def list_items() -> str:
     List harvested items in the knowledge base.
     """
     result = subprocess.run(
-        ["dz", "items", "list"],
+        ["pub", "items", "list"],
         capture_output=True,
         text=True
     )
@@ -214,7 +214,7 @@ def visualize(concept: str, artistic: bool = False, no_context: bool = False, so
         no_context: Skip knowledge base search for context
         sources: Number of sources to use for context
     """
-    cmd = ["dz", "visualize", concept, "--sources", str(sources)]
+    cmd = ["pub", "visualize", concept, "--sources", str(sources)]
     if artistic:
         cmd.append("--artistic")
     if no_context:
@@ -240,7 +240,7 @@ def crosspolinate(query_text: str, facet: str = "needs", limit: int = 5) -> str:
         limit: Max results to return
     """
     result = subprocess.run(
-        ["dz", "crosspolinate", query_text, "--facet", facet, "--limit", str(limit)],
+        ["pub", "crosspolinate", query_text, "--facet", facet, "--limit", str(limit)],
         capture_output=True,
         text=True
     )
@@ -260,7 +260,7 @@ def generate_index(output: str = "index.html") -> str:
         output: Output file path
     """
     result = subprocess.run(
-        ["dz", "index", "--output", output],
+        ["pub", "index", "--output", output],
         capture_output=True,
         text=True
     )
@@ -280,7 +280,7 @@ def artifacts_list() -> str:
     Shows artifacts grouped by source file with type and name.
     """
     result = subprocess.run(
-        ["dz", "artifacts", "list"],
+        ["pub", "artifacts", "list"],
         capture_output=True,
         text=True
     )
@@ -300,7 +300,7 @@ def artifacts_show(name: str) -> str:
         name: Name of the artifact to show
     """
     result = subprocess.run(
-        ["dz", "artifacts", "show", name],
+        ["pub", "artifacts", "show", name],
         capture_output=True,
         text=True
     )
@@ -321,7 +321,7 @@ def artifacts_apply(name: str, context: str) -> str:
         context: Your project/situation context (e.g., "I have a FastAPI backend")
     """
     result = subprocess.run(
-        ["dz", "artifacts", "apply", name, "--context", context],
+        ["pub", "artifacts", "apply", name, "--context", context],
         capture_output=True,
         text=True
     )
@@ -339,7 +339,7 @@ def artifacts_search(query: str) -> str:
         query: Search term to find matching artifacts
     """
     result = subprocess.run(
-        ["dz", "artifacts", "search", query],
+        ["pub", "artifacts", "search", query],
         capture_output=True,
         text=True
     )
@@ -360,7 +360,7 @@ def artifacts_scaffold(name: str, project_name: str = "", output_dir: str = "") 
         project_name: Project name (defaults to artifact name)
         output_dir: Output directory (default: ~/projects)
     """
-    cmd = ["dz", "artifacts", "scaffold", name]
+    cmd = ["pub", "artifacts", "scaffold", name]
     if project_name:
         cmd.extend(["--name", project_name])
     if output_dir:
@@ -383,7 +383,7 @@ def skills_list() -> str:
     Shows skill name, type, description, and creation date.
     """
     result = subprocess.run(
-        ["dz", "skills", "list"],
+        ["pub", "skills", "list"],
         capture_output=True,
         text=True
     )
@@ -401,7 +401,7 @@ def skills_show(name: str) -> str:
         name: Name of the skill to show
     """
     result = subprocess.run(
-        ["dz", "skills", "show", name],
+        ["pub", "skills", "show", name],
         capture_output=True,
         text=True
     )
@@ -421,7 +421,7 @@ def skills_create(name: str, skill_type: str, content: str, description: str = "
         content: Skill content (markdown text)
         description: Optional skill description
     """
-    cmd = ["dz", "skills", "create", "--name", name, "--type", skill_type]
+    cmd = ["pub", "skills", "create", "--name", name, "--type", skill_type]
     if description:
         cmd.extend(["--description", description])
 
@@ -447,7 +447,7 @@ def skills_update(name: str, content: str, description: str = "") -> str:
         content: New skill content
         description: Optional new description
     """
-    cmd = ["dz", "skills", "update", name]
+    cmd = ["pub", "skills", "update", name]
     if description:
         cmd.extend(["--description", description])
 
@@ -473,7 +473,7 @@ def skills_delete(name: str) -> str:
     """
     # Use yes to auto-confirm
     result = subprocess.run(
-        ["dz", "skills", "delete", name],
+        ["pub", "skills", "delete", name],
         input="y\n",
         capture_output=True,
         text=True
@@ -506,7 +506,7 @@ def project_create(
         description: Project description
         status: Project status (active, completed, archived)
     """
-    cmd = ["dz", "project", "create", name, "--status", status]
+    cmd = ["pub", "project", "create", name, "--status", status]
     if about:
         cmd.extend(["--about", about])
     if uses:
@@ -531,7 +531,7 @@ def project_show(name: str) -> str:
         name: Project name
     """
     result = subprocess.run(
-        ["dz", "project", "show", name],
+        ["pub", "project", "show", name],
         capture_output=True,
         text=True
     )
@@ -550,7 +550,7 @@ def project_link(name: str, item: int = 0, skill: str = "") -> str:
         item: Item ID to link (use 0 to skip)
         skill: Skill name to link (use empty string to skip)
     """
-    cmd = ["dz", "project", "link", name]
+    cmd = ["pub", "project", "link", name]
     if item > 0:
         cmd.extend(["--item", str(item)])
     if skill:
@@ -575,7 +575,7 @@ def project_unlink(name: str, item: int = 0, skill: str = "") -> str:
         item: Item ID to unlink (use 0 to skip)
         skill: Skill name to unlink (use empty string to skip)
     """
-    cmd = ["dz", "project", "unlink", name]
+    cmd = ["pub", "project", "unlink", name]
     if item > 0:
         cmd.extend(["--item", str(item)])
     if skill:
@@ -610,7 +610,7 @@ def project_update(
         description: Update description
         status: Update status (active, completed, archived)
     """
-    cmd = ["dz", "project", "update", name]
+    cmd = ["pub", "project", "update", name]
     if about:
         cmd.extend(["--about", about])
     if uses:
@@ -638,7 +638,7 @@ def project_delete(name: str) -> str:
     """
     # Auto-confirm deletion
     result = subprocess.run(
-        ["dz", "project", "delete", name],
+        ["pub", "project", "delete", name],
         input="y\n",
         capture_output=True,
         text=True
@@ -657,7 +657,7 @@ def project_embed(name: str = "all") -> str:
         name: Project name (or 'all' for all projects)
     """
     result = subprocess.run(
-        ["dz", "project", "embed", name],
+        ["pub", "project", "embed", name],
         capture_output=True,
         text=True
     )
@@ -677,7 +677,7 @@ def sources_list() -> str:
     Shows source ID, type, name, and URL.
     """
     result = subprocess.run(
-        ["dz", "sources", "list"],
+        ["pub", "sources", "list"],
         capture_output=True,
         text=True
     )
@@ -697,7 +697,7 @@ def sources_delete(source_id: int, force: bool = True) -> str:
         source_id: Source ID to delete
         force: Skip confirmation (default True for MCP)
     """
-    cmd = ["dz", "sources", "delete", str(source_id)]
+    cmd = ["pub", "sources", "delete", str(source_id)]
     if force:
         cmd.append("--force")
 
@@ -721,7 +721,7 @@ def items_delete(item_id: int, force: bool = True) -> str:
         item_id: Item ID to delete
         force: Skip confirmation (default True for MCP)
     """
-    cmd = ["dz", "items", "delete", str(item_id)]
+    cmd = ["pub", "items", "delete", str(item_id)]
     if force:
         cmd.append("--force")
 
@@ -748,7 +748,7 @@ def suggest_youtube(project_name: str, min_score: int = 40, limit: int = 10) -> 
         limit: Maximum results to show
     """
     result = subprocess.run(
-        ["dz", "suggest", "youtube", project_name,
+        ["pub", "suggest", "youtube", project_name,
          "--min-score", str(min_score),
          "--limit", str(limit)],
         capture_output=True,
@@ -773,7 +773,7 @@ def suggest_github(project_name: str, min_score: int = 40, limit: int = 10) -> s
         limit: Maximum results to show
     """
     result = subprocess.run(
-        ["dz", "suggest", "github", project_name,
+        ["pub", "suggest", "github", project_name,
          "--min-score", str(min_score),
          "--limit", str(limit)],
         capture_output=True,
@@ -798,7 +798,7 @@ def suggest_all(project_name: str, min_score: int = 40, limit: int = 10) -> str:
         limit: Maximum results per source
     """
     result = subprocess.run(
-        ["dz", "suggest", "all", project_name,
+        ["pub", "suggest", "all", project_name,
          "--min-score", str(min_score),
          "--limit", str(limit)],
         capture_output=True,
