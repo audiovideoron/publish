@@ -1,48 +1,70 @@
 # Inspire Record
 ## Product Requirements Document
 
-**Company:** Inspire Solutions, Dallas, TX  
-**Product:** Internal newsletter and knowledge base system  
-**Version:** 1.0 MVP  
+**Company:** Inspire Solutions, Dallas, TX
+**Product:** Internal knowledge base and operational assistant
+**Version:** 1.0 MVP
 **Date:** January 2026
 
 ---
 
 ## 1. Executive Summary
 
-Inspire Record is an internal publication system that serves as the single source of truth for Inspire Solutions. It replaces scattered email notifications, outdated SharePoint documents, and tribal knowledge with a searchable, versioned, professionally written knowledge base.
+Inspire Record is an operational system that does things instead of explaining how to do things.
 
-The newsletter is the authoring interface. Content published through it accumulates into a knowledge base from which other products (Employee Manual, SOPs, Quick Reference Guides) can be derived.
+The current SharePoint site is a library of documentation. Employees read procedures, hunt for templates, and manually execute multi-step workflows. Inspire Record replaces this with an assistant that acts: when an employee needs to cross-rent equipment, the system presents the form, routes the submission, and tracks the status — all searchable through the same semantic interface.
+
+The core insight: **content should be the interface, not a description of the interface.**
+
+All content — policies, training videos, forms, submitted requests — flows into a unified pgvector knowledge base. Semantic search retrieves both reference material ("What's the PTO policy?") and operational records ("What's the status of my equipment request?").
 
 ---
 
 ## 2. Problem Statement
 
 **Current State:**
+- Documentation explains procedures instead of executing them
+- Employees read "email this person, download this form, attach it here" — then do it manually
 - Policy updates arrive via email, then change a month later
-- Multiple versions of procedures exist across SharePoint, email threads, and Slack
+- Multiple versions exist across SharePoint, email threads, and Slack
 - No authoritative source when conflicts arise
-- Writing quality varies wildly
+- Keyword search requires knowing exact terminology
+- Forms and templates scattered across file shares
+- No way to check request status without emailing someone
 - Institutional knowledge leaves when employees leave
 
 **Desired State:**
-- Single publication of record for all company communications
-- Versioned content with clear supersession ("this replaces that")
-- Consistent, professional writing style
-- Searchable archive
-- Reusable content that feeds multiple output formats
+- System executes workflows, not just describes them
+- Forms embedded directly — employees fill them out, system routes them
+- Submitted requests become searchable records
+- Semantic search: ask questions in plain language, get answers and actions
+- Single source of truth with versioning and supersession
+- Unified index: policies, training, forms, and transaction records in one searchable space
 
 ---
 
 ## 3. Content Types
 
+### 3.1 Reference Content (Read)
+
 | Type | Purpose | Example |
 |------|---------|---------|
-| **Procedure** | SOPs, policies, how-tos | "How to Submit PTO Requests" |
+| **Procedure** | SOPs, policies, how-tos | "Cross-Rental Equipment Policy" |
 | **Story** | Problem/solution narratives | "How Dallas Cut Setup Time by 40%" |
 | **Spotlight** | Division/team achievements | "Q4 Wins from the AV Team" |
 | **Announcement** | Policy changes, new tools | "Updated Travel Reimbursement Policy" |
-| **Tutorial** | Learning/instruction (Agentic focus) | "Using AI to Draft Client Proposals" |
+| **Tutorial** | Learning/instruction | "Using AI to Draft Client Proposals" |
+| **Training** | Harvested video transcripts | Radar Essentials course |
+
+### 3.2 Operational Content (Do)
+
+| Type | Purpose | Example |
+|------|---------|---------|
+| **Form** | Actionable templates | Cross-Rental Request, PTO Request |
+| **Submission** | Completed form records | "Houston projector request - March 15" |
+| **Workflow** | Multi-step processes | PO approval chain |
+
+Forms are embedded directly in procedures. When the system retrieves "How do I cross-rent equipment?", it returns the policy AND presents the form to fill out. Submissions become searchable records.
 
 ---
 
@@ -51,20 +73,33 @@ The newsletter is the authoring interface. Content published through it accumula
 ### 4.1 Content Hierarchy
 
 ```
-Knowledge Base
-├── Articles (atomic content units)
-│   ├── metadata: type, topics, division, author, effective_date
-│   ├── versioning: supersedes, superseded_by, is_current
-│   └── body: markdown content
+Knowledge Base (pgvector)
 │
-├── Issues (periodic publications)
-│   ├── issue_number, publish_date
-│   └── contains 1-N articles
+├── Reference Layer (Read)
+│   ├── Articles (policies, procedures, announcements)
+│   │   ├── metadata: type, topics, division, author
+│   │   ├── versioning: supersedes, is_current
+│   │   └── embedded_form_id (optional link to actionable form)
+│   │
+│   ├── Training (harvested video transcripts)
+│   │   └── chunked and embedded for semantic search
+│   │
+│   └── Issues (periodic publications)
+│       └── contains 1-N articles
 │
-└── Derived Products (generated from articles)
-    ├── Employee Manual (procedures where is_current=true)
-    ├── SOPs (instructional content)
-    └── Quick Reference (summaries)
+├── Operational Layer (Do)
+│   ├── Forms (templates)
+│   │   ├── fields: name, type, required, options
+│   │   ├── routing: who receives submissions
+│   │   └── linked from procedures
+│   │
+│   └── Submissions (completed forms = records)
+│       ├── form_id, submitter, timestamp
+│       ├── field_values (JSONB)
+│       ├── status: pending, approved, rejected, completed
+│       └── embedded for semantic search
+│
+└── All content embedded → unified semantic search
 ```
 
 ### 4.2 Organizational Structure (Future)
@@ -83,32 +118,48 @@ Inspire Solutions
 
 ## 5. User Workflows
 
-### 5.1 Authoring (MVP)
+### 5.1 Semantic Query (Primary Interface)
+
+Employee asks a question in plain language. System responds with action, not just information.
+
+**Example: "I need to rent a projector from Houston for March 15"**
+
+1. System searches embedded content for relevant procedures
+2. Returns: Cross-Rental Equipment Policy (summary)
+3. Presents: Cross-Rental Request form (pre-populated where possible)
+4. Employee fills remaining fields, submits
+5. System routes to approver, creates searchable submission record
+6. Employee can later ask: "What's the status of my Houston request?"
+
+### 5.2 Form Submission
+
+1. Form presented inline (from procedure or direct query)
+2. Employee fills fields
+3. Submit creates submission record
+4. Submission embedded for future search
+5. Routing: notification to approver/processor
+6. Status tracked: pending → approved → completed
+
+### 5.3 Record Retrieval
+
+1. Employee asks: "Show my pending requests" or "POs over $1,000 this quarter"
+2. System searches submission embeddings
+3. Returns matching records with status
+
+### 5.4 Authoring
 
 1. Author opens editor at `/editor/new`
-2. Selects article type (procedure, story, spotlight, etc.)
-3. Writes content in browser-based editor
+2. Selects content type (procedure, announcement, form, etc.)
+3. For procedures: can link to existing form or create new one
 4. System auto-saves and lints with Vale
-5. Author addresses any style violations
-6. Author assigns to issue (new or existing)
-7. Editor/reviewer approves
-8. Publish generates HTML output
+5. Publish embeds content into knowledge base
 
-### 5.2 Supersession
+### 5.5 Supersession
 
 1. Policy changes require update
-2. Author creates new article
-3. Marks "supersedes" → selects original article
-4. Original article marked `is_current = false`
-5. New article shows "Replaces: [original title, Issue #X]"
-6. Derived products (manuals) auto-update on next generation
-
-### 5.3 Reading
-
-1. Employee accesses newsletter URL
-2. Views current issue or browses archive
-3. Searches for specific topics
-4. Links to original issue for any article
+2. Author creates new article, marks "supersedes" original
+3. Original marked `is_current = false`
+4. Queries return current version by default
 
 ---
 
@@ -118,29 +169,33 @@ Inspire Solutions
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Browser                                  │
+│                     User Interface                           │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │  Editor (contenteditable HTML)                       │    │
-│  │  - Section-based editing                             │    │
-│  │  - Auto-save                                         │    │
-│  │  - Inline lint feedback                              │    │
+│  │  Query Interface (primary)                           │    │
+│  │  - Ask questions in plain language                   │    │
+│  │  - Receive answers + actionable forms                │    │
+│  │  - Submit forms, check status                        │    │
 │  └──────────────────────┬──────────────────────────────┘    │
-│                         │                                    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  Authoring Interface                                 │    │
+│  │  - Article editor with Vale linting                  │    │
+│  │  - Form builder                                      │    │
+│  └──────────────────────┬──────────────────────────────┘    │
 └─────────────────────────┼────────────────────────────────────┘
-                          │ REST API
+                          │ REST API / MCP
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 Distillyzer (Extended)                       │
+│                      Publishing                              │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐    │
-│  │  REST API   │ │  MCP Server │ │   Vale Integration  │    │
-│  │  /articles  │ │  (Claude)   │ │   /api/lint         │    │
-│  │  /issues    │ │             │ │                     │    │
-│  │  /publish   │ └─────────────┘ └─────────────────────┘    │
+│  │  REST API   │ │  MCP Server │ │   Embedding         │    │
+│  │  /query     │ │  (Claude)   │ │   (OpenAI)          │    │
+│  │  /forms     │ │             │ │                     │    │
+│  │  /submit    │ └─────────────┘ └─────────────────────┘    │
 │  └─────────────┘                                            │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  PostgreSQL + pgvector                               │    │
-│  │  articles, issues, people, divisions, regions...     │    │
+│  │  articles, training, forms, submissions (all embedded)│    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -159,44 +214,92 @@ CREATE TABLE issues (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Articles (core content unit)
+-- Articles (reference content)
 CREATE TABLE articles (
     id SERIAL PRIMARY KEY,
     issue_id INTEGER REFERENCES issues(id),
-    
+
     -- Content
     title VARCHAR(255) NOT NULL,
     slug VARCHAR(100),
     article_type VARCHAR(20) NOT NULL,  -- procedure, story, spotlight, announcement, tutorial
     body TEXT,
     summary TEXT,
-    
+
+    -- Link to actionable form (optional)
+    form_id INTEGER REFERENCES forms(id),
+
     -- Categorization
     topics JSONB DEFAULT '[]',
     division VARCHAR(50),
-    
+
     -- Supersession
     supersedes_id INTEGER REFERENCES articles(id),
     is_current BOOLEAN DEFAULT TRUE,
-    
+
     -- Metadata
     author VARCHAR(100),
     effective_date DATE,
-    
-    -- Workflow
-    status VARCHAR(20) DEFAULT 'draft',  -- draft, review, published
-    
+    status VARCHAR(20) DEFAULT 'draft',
+
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Index for supersession queries
+-- Forms (actionable templates)
+CREATE TABLE forms (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(100) UNIQUE,
+    description TEXT,
+
+    -- Field definitions
+    fields JSONB NOT NULL,  -- [{name, type, required, options, default}]
+
+    -- Routing
+    route_to VARCHAR(255),  -- email or role
+
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Submissions (completed forms = operational records)
+CREATE TABLE submissions (
+    id SERIAL PRIMARY KEY,
+    form_id INTEGER REFERENCES forms(id) NOT NULL,
+
+    -- Submitter
+    submitted_by VARCHAR(100) NOT NULL,
+    submitted_at TIMESTAMP DEFAULT NOW(),
+
+    -- Data
+    field_values JSONB NOT NULL,
+
+    -- Workflow status
+    status VARCHAR(20) DEFAULT 'pending',  -- pending, approved, rejected, completed
+    processed_by VARCHAR(100),
+    processed_at TIMESTAMP,
+    notes TEXT,
+
+    -- For embedding/search
+    search_text TEXT,  -- denormalized for embedding
+
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes
 CREATE INDEX idx_articles_supersedes ON articles(supersedes_id);
 CREATE INDEX idx_articles_current ON articles(is_current) WHERE is_current = TRUE;
+CREATE INDEX idx_submissions_status ON submissions(status);
+CREATE INDEX idx_submissions_form ON submissions(form_id);
+CREATE INDEX idx_submissions_submitter ON submissions(submitted_by);
 ```
 
 ### 6.3 REST API Endpoints
 
+**Reference Content**
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/articles` | GET | List articles (filterable) |
@@ -206,22 +309,36 @@ CREATE INDEX idx_articles_current ON articles(is_current) WHERE is_current = TRU
 | `/api/articles/:id/supersede` | POST | Create superseding article |
 | `/api/issues` | GET | List issues |
 | `/api/issues` | POST | Create issue |
-| `/api/issues/:id` | GET | Get issue with articles |
-| `/api/issues/:id/publish` | POST | Publish issue (generate HTML) |
-| `/api/lint` | POST | Run Vale on content, return issues |
-| `/editor/:id` | GET | Serve editor UI for issue |
+| `/api/issues/:id/publish` | POST | Publish issue |
 
-### 6.4 MCP Tools (Distillyzer Extension)
+**Operational Content**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/forms` | GET | List available forms |
+| `/api/forms` | POST | Create form template |
+| `/api/forms/:id` | GET | Get form with field definitions |
+| `/api/submissions` | GET | List submissions (filterable by status, submitter) |
+| `/api/submissions` | POST | Submit completed form |
+| `/api/submissions/:id` | GET | Get submission details |
+| `/api/submissions/:id/status` | PUT | Update submission status |
+
+**Search & Query**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/query` | POST | Semantic search across all content |
+| `/api/lint` | POST | Run Vale on content |
+
+### 6.4 MCP Tools
 
 | Tool | Purpose |
 |------|---------|
+| `query` | Semantic search — returns content AND presents relevant forms |
+| `form_submit` | Submit a form, create record |
+| `submission_status` | Check status of submissions |
 | `article_create` | Create new article |
 | `article_draft` | Generate article draft using skill |
-| `article_lint` | Run Vale, return issues |
-| `issue_create` | Create new issue |
+| `form_create` | Create new form template |
 | `issue_publish` | Generate HTML/PDF output |
-| `issue_list` | List all issues |
-| `kb_search` | Search knowledge base |
 
 ---
 
@@ -434,96 +551,96 @@ Template file: `templates/inspire-record.html`
 
 | Feature | Description |
 |---------|-------------|
-| Article editor | Browser-based, contenteditable sections |
-| Article types | procedure, story, spotlight, announcement, tutorial |
-| Issue management | Create, edit, publish issues |
-| Vale linting | Real-time style enforcement |
+| Semantic query | Ask questions, get answers AND actions |
+| Forms | Create form templates, link to procedures |
+| Submissions | Submit forms, track status, search records |
+| Article editor | Browser-based content authoring |
+| Training harvest | Ingest video transcripts into knowledge base |
 | Supersession | Track what replaces what |
-| Archive | Browse and search past issues |
-| HTML output | Generate publishable newsletter |
+| Unified search | Policies, training, forms, records in one index |
 
 ### 9.2 Out of Scope (Future Versions)
 
 | Feature | Description |
 |---------|-------------|
+| Workflow automation | Auto-routing, approval chains, notifications |
 | SSO authentication | Microsoft 365 integration |
 | Per-user filtering | Region/property-specific views |
 | Meeting transcription | Harvest Teams recordings |
-| Automated derivation | Generate manuals from articles |
-| PDF output | Print-ready format |
-| Email distribution | Send newsletter via email |
+| Email integration | Send/receive via email |
+| External system sync | Push submissions to other systems |
 
 ---
 
 ## 10. Success Criteria
 
-1. **Adoption:** Newsletter replaces at least 3 types of notification emails within 60 days
-2. **Quality:** All published content passes Vale with zero errors
-3. **Findability:** Users can locate any policy within 30 seconds via search
-4. **Currency:** No policy exists in multiple conflicting versions
-5. **Authoring time:** New article takes <30 minutes from draft to publish
+1. **Action over reference:** At least 3 common workflows converted from "read the docs" to "fill out the form"
+2. **Semantic findability:** Employees find answers without knowing exact terminology
+3. **Record retrieval:** Submission status checkable via query, not email
+4. **Single source:** No policy exists in multiple conflicting versions
+5. **Training integration:** Video content searchable alongside written policies
 
 ---
 
 ## 11. Implementation Phases
 
-### Phase 1: Foundation
-- [ ] Distillyzer writing skill
-- [ ] Vale style package
-- [ ] Database schema migration
-- [ ] Remove legacy code (demo command)
+### Phase 1: Foundation (Current)
+- [x] Remove legacy code (demo command)
+- [x] Harvest training videos into knowledge base
+- [ ] Database schema: forms, submissions tables
+- [ ] Form CRUD operations
+- [ ] Submission create and status tracking
 
-### Phase 2: Editor
-- [ ] REST API endpoints
-- [ ] Browser-based editor
-- [ ] Auto-save and lint integration
+### Phase 2: Query Interface
+- [ ] Semantic query that returns content + presents forms
+- [ ] Submission search (my requests, pending POs, etc.)
+- [ ] Link forms to procedures
+
+### Phase 3: Content Authoring
+- [ ] Article editor with Vale linting
+- [ ] Form builder UI
+- [ ] Supersession tracking
 - [ ] Issue publishing
 
-### Phase 3: Archive & Search
-- [ ] Article archive view
-- [ ] Full-text search
-- [ ] Supersession display
-- [ ] Topic filtering
-
-### Phase 4: Organizational (Future)
+### Phase 4: Workflow (Future)
+- [ ] Auto-routing to approvers
+- [ ] Status notifications
 - [ ] Division/region structure
-- [ ] Meeting transcription pipeline
 - [ ] Microsoft 365 SSO
-- [ ] Per-user content filtering
 
 ---
 
 ## 12. Open Questions
 
-1. **Hosting:** Where will the newsletter application run? (Internal server, Azure, other)
-2. **Domain:** What URL will employees use? (record.inspiresolutions.com?)
-3. **Approval workflow:** Single approver or multi-stage review?
-4. **Notification:** How will employees know a new issue is published?
-5. **Permissions:** Who can author vs. who can publish?
+1. **Hosting:** Where will the system run? (Internal server, Azure, other)
+2. **Authentication:** How do employees log in? (Microsoft 365 SSO, other)
+3. **Form routing:** Who receives submissions for each form type?
+4. **Existing forms:** Which SharePoint/email workflows to migrate first?
+5. **Permissions:** Who can create forms vs. who can only submit?
 
 ---
 
 ## 13. Future: SaaS Model
 
-Distillyzer can evolve into a multi-tenant knowledge base and publication platform.
+Publishing can evolve into a multi-tenant operational knowledge platform.
 
 ```
-Distillyzer SaaS
+Publishing SaaS
 ├── Tenant: Inspire Solutions
-│   ├── Publications (Inspire Record, Hospitality Digest...)
-│   ├── Knowledge Base
-│   ├── Style Guide (Inspire-specific Vale rules)
-│   └── Org Structure (divisions, regions)
+│   ├── Knowledge Base (policies, training, forms, records)
+│   ├── Form Templates (cross-rental, PTO, vendor onboarding)
+│   ├── Submission Records (searchable operational data)
+│   └── Org Structure (divisions, regions, routing rules)
 │
 ├── Tenant: Other Company
-│   ├── Publications
 │   ├── Knowledge Base
-│   ├── Style Guide
+│   ├── Form Templates
+│   ├── Submission Records
 │   └── Org Structure
 │
 └── Platform
-    ├── Multi-tenant PostgreSQL
-    ├── Per-tenant Vale packages
+    ├── Multi-tenant PostgreSQL + pgvector
+    ├── Per-tenant form templates and routing
     ├── SSO per tenant
     └── Billing
 ```
@@ -538,26 +655,27 @@ Inspire is customer #1. Build for Inspire's needs, validate, then generalize.
 
 | File | Purpose | Status |
 |------|---------|--------|
+| `src/publishing/forms.py` | Form and submission operations | To create |
+| `alembic/versions/*_forms.py` | Database migration for forms/submissions | To create |
 | `templates/inspire-record.html` | Newsletter HTML template | To create |
 | `styles/Inspire/*.yml` | Vale rule files | To create |
 | `.vale.ini` | Vale configuration | To create |
-| `alembic/versions/*_newsletter.py` | Database migration | To create |
-| `src/distillyzer/newsletter.py` | Newsletter module | To create |
 
-### B. Related Distillyzer Components
+### B. Publishing Components
 
 | Component | Purpose | Modification |
 |-----------|---------|--------------|
-| `db.py` | Database operations | Extend with article/issue tables |
-| `rest_server.py` | REST API | Extend with newsletter endpoints |
-| `mcp_server.py` | MCP tools | Add newsletter tools |
-| `skills` table | Skill storage | Store writing skill |
+| `db.py` | Database operations | Add forms, submissions tables |
+| `query.py` | Semantic search | Return forms alongside content |
+| `rest_server.py` | REST API | Add form/submission endpoints |
+| `mcp_server.py` | MCP tools | Add query, form_submit, submission_status |
+| `embed.py` | Embedding | Embed submissions for search |
 
 ### C. External Dependencies
 
 | Dependency | Purpose | License |
 |------------|---------|---------|
+| pgvector | Vector similarity search | PostgreSQL |
+| OpenAI | Embeddings (text-embedding-3-small) | Commercial |
+| Anthropic | Claude for query synthesis | Commercial |
 | Vale | Prose linting | MIT |
-| write-good | Style rules | MIT |
-| proselint | Style rules | BSD |
-| Readability | Complexity metrics | MIT |
